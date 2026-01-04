@@ -28,6 +28,17 @@ typedef enum
   PREPARE_UNRECOGNIZED_STATEMENT
 }
 
+typedef enum 
+{
+  STATEMENT_INSERT,
+  STATEMENT_SELECT
+} StatementType;
+
+typedef struct 
+{
+  StatementType type;
+} Statement;
+
 InputBuffer *new_input_buffer(void)
 {
   InputBuffer *input = (InputBuffer *)malloc(sizeof(InputBuffer));
@@ -67,6 +78,31 @@ static void close_input_buffer(InputBuffer *input)
   free(input);
 }
 
+MetaCommandResult do_meta_cmd(InputBuffer *input)
+{
+  if (strcmp(input->buffer, ".exit") == 0) {
+    exit(EXIT_SUCCESS);
+  } else {
+    return META_CMD_UNRECOGNIZED;
+  }
+}
+
+// SQL compiler
+PrepareResult prepare_statement(InputBuffer *input, Statement *statement)
+{
+  if (strncmp(input->buffer, "insert", 6) == 0) {
+    statement->type = STATEMENT_INSERT;
+    return PREPARE_SUCCESS;
+  }
+  if (strcmp(input->buffer, "select") == 0) {
+    statement->type = STATEMENT_SELECT;
+    return PREPARE_SUCCESS;
+  }
+  
+  return PREPARE_UNRECOGNIZED_STATEMENT;
+}
+
+// REPL
 int main(int argc, char *argv[])
 {
   InputBuffer *input = new_input_buffer();
