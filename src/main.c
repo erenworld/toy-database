@@ -26,6 +26,23 @@ static void print_prompt(void)
   printf("db > ");
 }
 
+// getline to store the read line in input_buffer->buffer and the size of the allocated buffer in input_buffer->buffer_length. 
+// We store the return value in input_buffer->input_length.
+static void read_input(InputBuffer *input)
+{
+  ssize_t bytes_read =
+    getline(&(input->buffer), &(input->buffer_length), stdin);
+
+  if (bytes_read <= 0) {
+    printf("Error reading stdin. \n");
+    exit(EXIT_FAILURE);
+  }
+
+  // ignore trailing newline
+  input->input_length = bytes_read - 1;
+  input->buffer[bytes_read - 1] = 0;
+}
+
 int main(int argc, char *argv[])
 {
   InputBuffer *input = new_input_buffer();
