@@ -1,6 +1,12 @@
 // Eren Türkoglu
 // 2026
 // Sqlite from scratch
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <sys/types.h>
+
 
 // A small wrapper around the state we need to store to interact with getline().
 typedef struct
@@ -18,7 +24,7 @@ InputBuffer *new_input_buffer(void)
   input->buffer_length = 0; 
   input->input_length = 0;
 
-  return input_buffer;
+  return input;
 }
 
 static void print_prompt(void)
