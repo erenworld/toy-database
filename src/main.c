@@ -16,6 +16,18 @@ typedef struct
   ssize_t input_length;
 } InputBuffer;
 
+typedef enum 
+{
+  META_CMD_SUCCESS,
+  META_CMD_UNRECOGNIZED
+} MetaCommandResult;
+
+typedef enum 
+{
+  PREPARE_SUCCESS,
+  PREPARE_UNRECOGNIZED_STATEMENT
+}
+
 InputBuffer *new_input_buffer(void)
 {
   InputBuffer *input = (InputBuffer *)malloc(sizeof(InputBuffer));
@@ -63,12 +75,28 @@ int main(int argc, char *argv[])
     print_prompt();
     read_input(input);
 
-    if (strcmp(input->buffer, ".exit") == 0) {
-      close_input_buffer(input);
-      exit(EXIT_SUCCESS);
-    } else {
-      printf("Unrecognized command '%s' .\n", input->buffer);
+    if (input->buffer[0] == '.') {
+      switch (do_meta_cmd(input)) {
+        case (META_CMD_SUCCESS):
+          continue;
+        case (META_CMD_UNRECOGNIZED):
+          printf("Unrecognized command '%s'\n", input->buffer);
+          continue;
+      }
     }
+    
+    Statement statement;
+    switch (prepare_statement(input, &statement)) {
+      case (PREPARE_SUCCESS):
+        break;
+      case (PREPARE_UNRECOGNIZED_STATEMENT):
+        printf("Unrecognized keyword at start of '%s'.\n",
+          input->buffer);
+        continue;
+    }
+    execute_statement(&statement);
+    printf("Executed. \n");
   }
   return 0;
 }
+
