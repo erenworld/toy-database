@@ -21,6 +21,11 @@ InputBuffer *new_input_buffer(void)
   return input_buffer;
 }
 
+static void print_prompt(void)
+{
+  printf("db > ");
+}
+
 int main(int argc, char *argv[])
 {
   InputBuffer *input = new_input_buffer();
