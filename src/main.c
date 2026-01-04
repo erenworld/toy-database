@@ -43,6 +43,12 @@ static void read_input(InputBuffer *input)
   input->buffer[bytes_read - 1] = 0;
 }
 
+static void close_input_buffer(InputBuffer *input)
+{
+  free(input->buffer);
+  free(input);
+}
+
 int main(int argc, char *argv[])
 {
   InputBuffer *input = new_input_buffer();
