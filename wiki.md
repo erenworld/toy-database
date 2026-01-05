@@ -26,3 +26,11 @@ email	    varchar(255)
 ## insert 
 insert 1 cstack foo@bar.com
 
+
+
+
+column	size (bytes)	offset
+id	        4	0
+username	32	4
+email	255	36
+total	291
