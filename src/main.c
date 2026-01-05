@@ -7,7 +7,6 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-
 // A small wrapper around the state we need to store to interact with getline().
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
 
@@ -32,7 +31,19 @@ typedef enum
 typedef struct 
 {
   StatementType type;
+  row_to_insert Row;
 } Statement;
+
+#define COLUMN_USERNAME_SIZE 32
+#define COLUMN_EMAIL_SIZE 255
+
+typedef struct {
+  uint32_t id; 
+  char username[COLUMN_USERNAME_SIZE];
+  char email[COLUMN_EMAIL_SIZE];
+} Row;
+
+
 
 InputBuffer *new_input_buffer(void)
 {
