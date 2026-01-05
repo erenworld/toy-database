@@ -19,7 +19,8 @@ typedef enum
 typedef enum 
 {
   PREPARE_SUCCESS,
-  PREPARE_UNRECOGNIZED_STATEMENT
+  PREPARE_UNRECOGNIZED_STATEMENT,
+  PREPARE_SYNTAX_ERROR
 } PrepareResult;
 
 typedef enum 
@@ -27,12 +28,6 @@ typedef enum
   STATEMENT_INSERT,
   STATEMENT_SELECT
 } StatementType;
-
-typedef struct 
-{
-  StatementType type;
-  row_to_insert Row;
-} Statement;
 
 #define COLUMN_USERNAME_SIZE 32
 #define COLUMN_EMAIL_SIZE 255
@@ -42,6 +37,12 @@ typedef struct {
   char username[COLUMN_USERNAME_SIZE];
   char email[COLUMN_EMAIL_SIZE];
 } Row;
+
+typedef struct 
+{
+  StatementType type;
+  Row row_to_insert;
+} Statement;
 
 #define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute); 
 
