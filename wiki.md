@@ -8,7 +8,7 @@ The os interface is the layer that differs depending on which operating system s
 
 
 ## Getline
-`ssize_t getline(char **lineptr, size_t *n, FILE *stream);`
+`ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 
 - lineptr : a pointer to the variable we use to point to the buffer containing the read line. If it set to NULL it is mallocatted by getline and should thus be freed by the user, even if the command fails.
 - n : a pointer to the variable we use to save the size of allocated buffer.
@@ -18,4 +18,11 @@ The os interface is the layer that differs depending on which operating system s
 
 Non-SQL statements like .exit are called “meta-commands”. They all start with a dot, so we check for them and handle them in a separate function.
 
+column	    type
+id	        integer
+username	varchar(32)
+email	    varchar(255)
+
+## insert 
+insert 1 cstack foo@bar.com
 

@@ -9,12 +9,7 @@
 
 
 // A small wrapper around the state we need to store to interact with getline().
-typedef struct
-{
-  char *buffer; 
-  size_t buffer_length;
-  ssize_t input_length;
-} InputBuffer;
+typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
 
 typedef enum 
 {
@@ -92,6 +87,12 @@ PrepareResult prepare_statement(InputBuffer *input, Statement *statement)
 {
   if (strncmp(input->buffer, "insert", 6) == 0) {
     statement->type = STATEMENT_INSERT;
+    int args_assigned = sscanf(
+      input->buffer, "insert %d %s %s", &(statement->row_to_insert.id),
+      statement->row_to_insert.username, statement->row_to_insert.email);
+    if (args_assigned < 3) {
+      return PREPARE_SYNTAX_ERROR;
+    }
     return PREPARE_SUCCESS;
   }
   if (strcmp(input->buffer, "select") == 0) {
