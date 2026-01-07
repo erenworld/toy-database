@@ -54,6 +54,16 @@ const uint32_t USERNAME_OFFSET = ID_OFFSET + ID_SIZE;
 const uint32_t EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE;
 const uint32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 
+const uint32_t PAGE_SIZE = 4096;
+#define TABLE_MAX_PAGES 100
+const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+typedef struct {
+    uint32_t nums_rows;
+    void *pages[TABLE_MAX_PAGES];
+} Table;
+
 InputBuffer *new_input_buffer(void)
 {
   InputBuffer *input = (InputBuffer *)malloc(sizeof(InputBuffer));
@@ -81,7 +91,7 @@ void deserialize_row(void *source, Row *dest)
 
 static void print_prompt(void)
 {
-  printf("db > ");
+  printf("sqlite > ");
 }
 
 // getline to store the read line in input_buffer->buffer and the size of the allocated buffer in input_buffer->buffer_length. 
