@@ -50,3 +50,7 @@ offset 0 : première ligne de cette page
 
 ## L’offset = l’index de la ligne à l’intérieur de la page.
 
+- row_slot: It maps a logical row number to a physical address
+(page_id, byte_offset) → memory pointer
+
+
