@@ -34,3 +34,19 @@ id	        4	0
 username	32	4
 email	255	36
 total	291
+
+
+
+page   = n / ROWS_PER_PAGE
+offset = n % ROWS_PER_PAGE
+
+Avec n = 40 et ROWS_PER_PAGE = 40
+page   = 40 / 40 = 1
+offset = 40 % 40 = 0
+
+Interprétation
+page 1 : oui
+offset 0 : première ligne de cette page
+
+## L’offset = l’index de la ligne à l’intérieur de la page.
+

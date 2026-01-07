@@ -56,12 +56,15 @@ const uint32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 
 const uint32_t PAGE_SIZE = 4096;
 #define TABLE_MAX_PAGES 100
+// max memory 400KB
 const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
 const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+// ROW_SIZE = 100 bytes
+// 4096 / 100 ≈ 40 line per page
 
 typedef struct {
     uint32_t nums_rows;
-    void *pages[TABLE_MAX_PAGES];
+    void *pages[TABLE_MAX_PAGES];  // each entry points to a page
 } Table;
 
 InputBuffer *new_input_buffer(void)
@@ -157,6 +160,20 @@ void execute_statement(Statement *statement)
       printf("This is where we would do an select.\n");
       break;
   }
+}
+
+// Helper to read/write in memory for a particular row 
+void *row_slot(Table *table, uint32_t row_num)
+{
+    uint32_t page_num = row_num / ROWS_PER_PAGE;
+    void *page = table->pages[page_num];
+    if (page == NULL) {
+        // allocate only when we try to access page
+        page = table->pages[page_num] = malloc(PAGE_SIZE);
+    }
+    uint32_t row_offset = row_num % ROWS_PER_PAGE;
+    uint32_t byte_offset = row_offset * ROW_SIZE;
+    return page + byte_offset;
 }
 
 // REPL
