@@ -130,6 +130,11 @@ MetaCommandResult do_meta_cmd(InputBuffer *input)
   }
 }
 
+static void print_row(Row *row)
+{
+    printf("%d %s %s\n", row->id, row->username, row->email);
+}
+
 // SQL compiler
 PrepareResult prepare_statement(InputBuffer *input, Statement *statement)
 {
