@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include <stdint.h>
 
 // A small wrapper around the state we need to store to interact with getline().
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
@@ -221,6 +222,7 @@ void free_table(Table *table)
 int main(int argc, char *argv[])
 {
   InputBuffer *input = new_input_buffer();
+  Table *table = new_table();
 
   while (true) {
     print_prompt();
@@ -240,13 +242,22 @@ int main(int argc, char *argv[])
     switch (prepare_statement(input, &statement)) {
       case (PREPARE_SUCCESS):
         break;
+      case (PREPARE_SYNTAX_ERROR):
+        printf("Syntax error. Could not parse statement.\n");
+        continue;
       case (PREPARE_UNRECOGNIZED_STATEMENT):
         printf("Unrecognized keyword at start of '%s'.\n",
           input->buffer);
         continue;
     }
-    execute_statement(&statement);
-    printf("Executed. \n");
+    switch (execute_statement(&statement, table)) {
+      case (EXECUTE_SUCCESS):
+        printf("Executed.\n");
+        break;
+      case (EXECUTE_TABLE_FULL):
+        printf("Error: table full.\n");
+        break;
+    }
   }
   return 0;
 }
