@@ -11,6 +11,8 @@
 // A small wrapper around the state we need to store to interact with getline().
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
 
+typedef enum { EXECUTE_SUCCESS, EXECUTE_TABLE_FULL } ExecuteResult;
+
 typedef enum 
 {
   META_CMD_SUCCESS,
@@ -64,7 +66,7 @@ const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 // 4096 / 100 ≈ 40 line per page
 
 typedef struct {
-    uint32_t nums_rows;
+    uint32_t num_rows;
     void *pages[TABLE_MAX_PAGES];  // each entry points to a page
 } Table;
 
@@ -121,9 +123,19 @@ static void close_input_buffer(InputBuffer *input)
   free(input);
 }
 
-MetaCommandResult do_meta_cmd(InputBuffer *input)
+void free_table(Table *table)
+{
+    for (int i = 0; table->pages[i]; i++) {
+      free(table->pages[i]);
+    }
+    free(table);
+}
+
+MetaCommandResult do_meta_cmd(InputBuffer *input, Table *table)
 {
   if (strcmp(input->buffer, ".exit") == 0) {
+    close_input_buffer(input);
+    free_table(table);
     exit(EXIT_SUCCESS);
   } else {
     return META_CMD_UNRECOGNIZED;
@@ -133,6 +145,20 @@ MetaCommandResult do_meta_cmd(InputBuffer *input)
 static void print_row(Row *row)
 {
     printf("%d %s %s\n", row->id, row->username, row->email);
+}
+
+// Helper to read/write address memory for a particular row 
+void *row_slot(Table *table, uint32_t row_num)
+{
+    uint32_t page_num = row_num / ROWS_PER_PAGE;
+    void *page = table->pages[page_num];
+    if (page == NULL) {
+        // Lazy allocation
+        page = table->pages[page_num] = malloc(PAGE_SIZE);
+    }
+    uint32_t row_offset = row_num % ROWS_PER_PAGE;
+    uint32_t byte_offset = row_offset * ROW_SIZE;
+    return page + byte_offset; // memory pointer
 }
 
 // SQL compiler
@@ -190,20 +216,6 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
   }
 }
 
-// Helper to read/write address memory for a particular row 
-void *row_slot(Table *table, uint32_t row_num)
-{
-    uint32_t page_num = row_num / ROWS_PER_PAGE;
-    void *page = table->pages[page_num];
-    if (page == NULL) {
-        // Lazy allocation
-        page = table->pages[page_num] = malloc(PAGE_SIZE);
-    }
-    uint32_t row_offset = row_num % ROWS_PER_PAGE;
-    uint32_t byte_offset = row_offset * ROW_SIZE;
-    return page + byte_offset; // memory pointer
-}
-
 Table *new_table(void)
 {
     Table *table = (Table*)malloc(sizeof(Table));
@@ -213,14 +225,6 @@ Table *new_table(void)
         table->pages[i] = NULL;
     }
     return table;
-}
-
-void free_table(Table *table)
-{
-    for (int i = 0; i < table->pages[i]; i++) {
-      free(table->pages[i]);
-    }
-    free(table);
 }
 
 // REPL
@@ -234,7 +238,7 @@ int main(int argc, char *argv[])
     read_input(input);
 
     if (input->buffer[0] == '.') {
-      switch (do_meta_cmd(input)) {
+      switch (do_meta_cmd(input, table)) {
         case (META_CMD_SUCCESS):
           continue;
         case (META_CMD_UNRECOGNIZED):
