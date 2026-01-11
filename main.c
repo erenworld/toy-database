@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <stdint.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 // A small wrapper around the state we need to store to interact with getline()
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
@@ -266,11 +268,42 @@ Table *db_open(const char *filename)
     return table;
 }
 
+// Opens the database file and keeps track of its size. It also initializes the page cache to all NULLs
+Pager *pager_open(const char *filename)
+{
+  int fd = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
+  
+  if (fd == -1) {
+    printf("unable to open file\n");
+    exit(EXIT_FAILURE);
+  }
+
+  off_t file_length = lseek(fd, 0, SEEK_END);
+  Pager *pager = malloc(sizeof(Pager));
+
+  if (pager == NULL) {
+    printf("286 - malloc error");
+    exit(EXIT_FAILURE);
+  }
+  pager->fd = fd;
+  pager->file_length = file_length;
+
+  for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
+    pager->pages[i] = NULL;
+  }
+  return pager;
+}
+
 // REPL
 int main(int argc, char *argv[])
 {
+  if (argc < 2) {
+    printf("sqlite <filename>\n");
+    return -1;
+  }
+
   InputBuffer *input = new_input_buffer();
-  Table *table = db_open();
+  Table *table = db_open(argv[1]);
 
   while (true) {
     print_prompt();
