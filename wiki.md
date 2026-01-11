@@ -54,3 +54,6 @@ offset 0 : première ligne de cette page
 (page_id, byte_offset) → memory pointer
 
 
+
+## Pager
+We ask the pager for page number x, and the pager gives us back a block of memory. It first looks in its cache. On a cache miss, it copies data from disk into memory (by reading the database file).
