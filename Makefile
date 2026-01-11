@@ -12,15 +12,7 @@ OBJ     = $(SRC:.c=.o)
 # Compiler and flags
 CC      = gcc
 CFLAGS  = -std=c99 \
-          -Wall -Wextra -Wpedantic \
-          -Wshadow -Wconversion -Wsign-conversion \
-          -Wuninitialized -Winit-self \
-          -Wfloat-equal -Wundef -Wcast-align -Wcast-qual \
-          -Wno-unused-parameter \
-          -fsanitize=address \
-          -fPIE \
-          -fno-omit-frame-pointer \
-          -g
+          -Wall -Wextra -Wno-unused-parameter \
 
 LDFLAGS = -fsanitize=address \
 
@@ -43,6 +35,10 @@ $(NAME): $(OBJ)
 # Default rule
 all: $(NAME)
 
+# Tests
+test:
+    
+
 # Compilation of object files
 %.o: %.c
 	@echo "$(YELLOW)[COMPILED]:\\n  $(GRAY1)|-> [file.c] $(GRAY2)$<\\n  $(GRAY1)|-> [file.o] $(GRAY2)$@$(RESET)"
@@ -50,7 +46,7 @@ all: $(NAME)
 
 # Cleanup rules
 clean:
-	@rm -f $(OBJ)
+	@rm -f $(OBJ) sqlite
 	@echo "$(RED)[CLEANED] :\\n  $(GRAY1)|-> Object files removed!$(RESET)"
 
 fclean: clean
