@@ -27,7 +27,8 @@ typedef enum
 {
   PREPARE_SUCCESS,
   PREPARE_UNRECOGNIZED_STATEMENT,
-  PREPARE_SYNTAX_ERROR
+  PREPARE_SYNTAX_ERROR,
+  PREPARE_STRING_TOO_LONG
 } PrepareResult;
 
 typedef enum 
@@ -148,7 +149,7 @@ MetaCommandResult do_meta_cmd(InputBuffer *input, Table *table)
 
 static void print_row(Row *row)
 {
-    printf("%d %s %s\n", row->id, row->username, row->email);
+    printf("(%d, %s, %s)\n", row->id, row->username, row->email);
 }
 
 // Helper to read/write address memory for a particular row 
@@ -165,18 +166,39 @@ void *row_slot(Table *table, uint32_t row_num)
     return page + byte_offset; // memory pointer
 }
 
+PrepareResult prepare_insert(InputBuffer *input, Statement *statement)
+{
+  statement->type = STATEMENT_INSERT;
+
+  char *keyword = strtok(input->buffer, " ");
+  char *id_string = strtok(NULL, " ");
+  char *username = strtok(NULL, " ");
+  char *email = strtok(NULL, " ");
+
+  if (id_string == NULL || username == NULL || email == NULL) {
+    return PREPARE_SYNTAX_ERROR;
+  }
+
+  int id = atoi(id_string);
+  if (strlen(username) > COLUMN_USERNAME_SIZE) {
+    return PREPARE_STRING_TOO_LONG;
+  }
+  if (strlen(email) > COLUMN_EMAIL_SIZE) {
+   return PREPARE_STRING_TOO_LONG;
+  }
+
+  statement->row_to_insert.id = id;
+  strcpy(statement->row_to_insert.username, username); 
+  strcpy(statement->row_to_insert.email, email);
+
+  return PREPARE_SUCCESS;
+}
+
 // SQL compiler
 PrepareResult prepare_statement(InputBuffer *input, Statement *statement)
 {
   if (strncmp(input->buffer, "insert", 6) == 0) {
-    statement->type = STATEMENT_INSERT;
-    int args_assigned = sscanf(
-      input->buffer, "insert %d %s %s", &(statement->row_to_insert.id),
-      statement->row_to_insert.username, statement->row_to_insert.email);
-    if (args_assigned < 3) {
-      return PREPARE_SYNTAX_ERROR;
-    }
-    return PREPARE_SUCCESS;
+    return prepare_insert(input, statement);
   }
   if (strcmp(input->buffer, "select") == 0) {
     statement->type = STATEMENT_SELECT;
