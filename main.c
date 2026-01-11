@@ -147,11 +147,10 @@ void free_table(Table *table)
     free(table);
 }
 
-MetaCommandResult do_meta_cmd(InputBuffer *input, Table *table)
+MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
 {
   if (strcmp(input->buffer, ".exit") == 0) {
-    close_input_buffer(input);
-    free_table(table);
+    db_close(table);
     exit(EXIT_SUCCESS);
   } else {
     return META_CMD_UNRECOGNIZED;
