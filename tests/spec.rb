@@ -35,4 +35,21 @@ describe 'database' do
 
     expect(result).to include('sqlite > Error: table full.')
   end
+
+  it 'allows inserting strings that are the maximum length' do
+    long_username = "a"*32
+    long_email = "a"*255
+    script = [
+      "insert 1 #{long_username} #{long_email}",
+      "select",
+      ".exit",
+    ]
+    result = run_script(script)
+    expect(result).to match_array([
+      "sqlite > Executed.",
+      "sqlite > (1, #{long_username}, #{long_email})",
+      "Executed.",
+      "sqlite > ",
+    ])
+  end
 end
