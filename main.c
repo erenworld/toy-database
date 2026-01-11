@@ -73,8 +73,15 @@ const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 
 typedef struct {
     uint32_t num_rows;
-    void *pages[TABLE_MAX_PAGES];  // each entry points to a page
+    Pager *pager;
 } Table;
+
+typedef struct {
+  int fd;
+  uint32_t file_length;
+  void *pages[TABLE_MAX_PAGES];
+} Pager;
+
 
 InputBuffer *new_input_buffer(void)
 {
