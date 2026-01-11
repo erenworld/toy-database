@@ -45,11 +45,11 @@ describe 'database' do
       ".exit",
     ]
     result = run_script(script)
-    expect(result).to match_array([
+    expect(result).to eq([
       "sqlite > Executed.",
       "sqlite > (1, #{long_username}, #{long_email})",
-      "Executed.",
-      "sqlite > ",
-    ])
+      "sqlite > Executed.",
+      "sqlite >",
+    ])    
   end
 end
