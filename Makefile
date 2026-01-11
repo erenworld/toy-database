@@ -37,7 +37,7 @@ all: $(NAME)
 
 # Tests
 test:
-    
+	bundle exec rspec
 
 # Compilation of object files
 %.o: %.c

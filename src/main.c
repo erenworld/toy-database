@@ -1,6 +1,10 @@
-// Eren Türkoglu
-// 2026
-// Sqlite from scratch
+/*
+** EREN TURKOGLU, 2026
+** toy-database
+** File description:
+** main
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +12,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-// A small wrapper around the state we need to store to interact with getline().
+// A small wrapper around the state we need to store to interact with getline()
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
 
 typedef enum { EXECUTE_SUCCESS, EXECUTE_TABLE_FULL } ExecuteResult;
