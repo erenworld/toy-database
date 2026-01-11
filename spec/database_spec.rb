@@ -84,4 +84,25 @@
         "sqlite > ",
       ])
     end
+
+        it 'keeps data after closing connection' do
+          result1 = run_script([
+            "insert 1 user1 person1@email.com",
+            ".exit",
+          ])
+          expect(result1).to match_array([
+            "sqlite > Executed.",
+            "sqlite > ",
+          ])
+
+          result2 = run_script([
+            "select",
+            ".exit",
+          ])
+          expect(result2).to match_array([
+            "sqlite > (1, user1, person1@email.com)",
+            "Executed.",
+            "sqlite > ",
+      ])
+    end
   end
