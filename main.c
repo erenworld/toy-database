@@ -254,14 +254,15 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
   }
 }
 
-Table *db_open(void)
+Table *db_open(const char *filename)
 {
-    Table *table = (Table*)malloc(sizeof(Table));
-    table->num_rows = 0;
+    Pager *pager = pager_open(filename);
+    uint32_t num_rows = pager->file_length / ROW_SIZE;
+
+    Table *table = malloc(sizeof(Table));
+    table->pager = pager;
+    table->num_rows = num_rows;  
   
-    for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
-        table->pages[i] = NULL;
-    }
     return table;
 }
 
