@@ -139,14 +139,6 @@ static void close_input_buffer(InputBuffer *input)
   free(input);
 }
 
-void free_table(Table *table)
-{
-    for (int i = 0; table->pages[i]; i++) {
-      free(table->pages[i]);
-    }
-    free(table);
-}
-
 MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
 {
   if (strcmp(input->buffer, ".exit") == 0) {
