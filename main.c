@@ -254,7 +254,7 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
   }
 }
 
-Table *new_table(void)
+Table *db_open(void)
 {
     Table *table = (Table*)malloc(sizeof(Table));
     table->num_rows = 0;
@@ -269,7 +269,7 @@ Table *new_table(void)
 int main(int argc, char *argv[])
 {
   InputBuffer *input = new_input_buffer();
-  Table *table = new_table();
+  Table *table = db_open();
 
   while (true) {
     print_prompt();
