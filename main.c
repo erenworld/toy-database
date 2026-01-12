@@ -384,12 +384,13 @@ Pager *pager_open(const char *filename)
 int main(int argc, char *argv[])
 {
   if (argc < 2) {
-    printf("sqlite <filename>\n");
-    return -1;
+    printf("Must supply a database filename.\n");
+    exit(EXIT_FAILURE);
   }
 
-  InputBuffer *input = new_input_buffer();
+  char *filename = argv[1];
   Table *table = db_open(argv[1]);
+  InputBuffer *input = new_input_buffer();
 
   while (true) {
     print_prompt();
