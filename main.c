@@ -381,6 +381,7 @@ ExecuteResult execute_select(Statement *statement, Table *table)
         print_row(&row);
         cursor_advance(cursor);
     }
+    free(cursor);
     return EXECUTE_SUCCESS;
 }
 
