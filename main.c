@@ -267,6 +267,15 @@ void *cursor_value(Cursor *cursor)
     return page + byte_offset; // memory pointer
 }
 
+void cursor_advance(Cursor *cursor)
+{
+    cursor->row_num += 1;
+
+    if (cursor->row_num >= cursor->table->num_rows) {
+        cursor->end_of_table = true;
+    }
+}
+
 PrepareResult prepare_insert(InputBuffer *input, Statement *statement)
 {
   statement->type = STATEMENT_INSERT;
