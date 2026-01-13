@@ -87,6 +87,12 @@ typedef struct {
     Pager *pager;
 } Table;
 
+typedef struct {
+    Table *table;
+    uint32_t num_rows;
+    bool end_of_table;  // Indicates a position one past the last element
+} Cursor;
+
 
 InputBuffer *new_input_buffer(void)
 {
