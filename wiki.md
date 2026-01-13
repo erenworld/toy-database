@@ -57,3 +57,15 @@ offset 0 : première ligne de cette page
 
 ## Pager
 We ask the pager for page number x, and the pager gives us back a block of memory. It first looks in its cache. On a cache miss, it copies data from disk into memory (by reading the database file).
+
+
+In our current design, the length of the file encodes how many rows are in the database, so we need to write a partial page at the end of the file. That’s why pager_flush() takes both a page number and a size. It’s not the greatest design
+
+The first four bytes are the id of the first row (4 bytes because we store a uint32_t). It’s stored in little-endian byte order, so the least significant byte comes first (01), followed by the higher-order bytes (00 00 00). We used memcpy() to copy bytes from our Row struct into the page cache, so that means the struct was laid out in memory in little-endian byte order. That’s an attribute of the machine I compiled the program for. If we wanted to write a database file on my machine, then read it on a big-endian machine, we’d have to change our serialize_row() and deserialize_row() methods to always store and read bytes in the same order.
+
+The next 33 bytes store the username as a null-terminated string. Apparently “cstack” in ASCII hexadecimal is 63 73 74 61 63 6b, followed by a null character (00). The rest of the 33 bytes are unused.
+
+The next 256 bytes store the email in the same way
+
+
+If we wanted to ensure that all bytes are initialized, it would suffice to use strncpy instead of memcpy while copying the username and email fields of rows in serialize_row

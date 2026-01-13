@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 // A small wrapper around the state we need to store to interact with getline()
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
@@ -74,16 +75,17 @@ const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 // ROW_SIZE = 100 bytes
 // 4096 / 100 ≈ 40 line per page
 
-typedef struct {
-    uint32_t num_rows;
-    Pager *pager;
-} Table;
 
 typedef struct {
   int fd;
   uint32_t file_length;
   void *pages[TABLE_MAX_PAGES];
 } Pager;
+
+typedef struct {
+    uint32_t num_rows;
+    Pager *pager;
+} Table;
 
 
 InputBuffer *new_input_buffer(void)
@@ -97,11 +99,12 @@ InputBuffer *new_input_buffer(void)
   return input;
 }
 
+// we wanted to ensure that all bytes are initialized, we use strncpy instead of memcpy
 void serialize_row(Row *source, void *dest)
 {
   memcpy(dest + ID_OFFSET, &(source->id), ID_SIZE);
-  memcpy(dest + USERNAME_OFFSET, &(source->username), USERNAME_SIZE);
-  memcpy(dest + EMAIL_OFFSET, &(source->email), EMAIL_SIZE);
+  strncpy(dest + USERNAME_OFFSET, source->username, USERNAME_SIZE);
+  strncpy(dest + EMAIL_OFFSET, source->email, EMAIL_SIZE);
 }
 
 void deserialize_row(void *source, Row *dest)
@@ -133,10 +136,68 @@ static void read_input(InputBuffer *input)
   input->buffer[bytes_read - 1] = 0;
 }
 
-static void close_input_buffer(InputBuffer *input)
+void pager_flush(Pager *pager, uint32_t page_num, uint32_t size)
 {
-  free(input->buffer);
-  free(input);
+  if (pager->pages[page_num] == NULL) {
+    printf("Tried to flush null page\n");
+    exit(EXIT_FAILURE);
+  }
+
+  off_t offset = lseek(pager->fd, page_num * PAGE_SIZE, SEEK_SET);
+  if (offset == -1) {
+    printf("Error seeking: %d\n", errno);
+    exit(EXIT_FAILURE);
+  }
+
+  ssize_t bytes_written =
+    write(pager->fd, pager->pages[page_num], size);
+  if (bytes_written == -1) {
+    printf("Error writing: %d\n", errno);
+    exit(EXIT_FAILURE);
+  }
+}
+
+void db_close(Table *table)
+{
+  Pager *pager = table->pager;
+  uint32_t num_full_pages = table->num_rows / ROWS_PER_PAGE;
+
+  for (uint32_t i = 0; i < num_full_pages; i++) {
+    if (pager->pages[i] == NULL) {
+      continue;
+    }
+    pager_flush(pager, i, PAGE_SIZE);
+    free(pager->pages[i]);
+    pager->pages[i] = NULL;
+  }
+  // There may be a partial page to write to the end of the file
+  // This should not be needed after we switch to a B-tree
+  uint32_t num_additional_rows = table->num_rows % ROWS_PER_PAGE;
+  if (num_additional_rows > 0) {
+    uint32_t page_num = num_full_pages;
+
+    if (pager->pages[page_num] != NULL) {
+      pager_flush(pager, page_num, num_additional_rows * ROW_SIZE);
+      free(pager->pages[page_num]);
+      pager->pages[page_num] = NULL;
+    }
+  }
+
+  int result = close(pager->fd);
+  if (result == -1) {
+    printf("Error closing db file.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
+    void *page = pager->pages[i];
+    if (page) {
+      free(page);
+      pager->pages[i] = NULL;
+    }
+  }
+  free(pager);
+  free(table);
 }
 
 MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
@@ -278,82 +339,6 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
   }
 }
 
-void pager_flush(Pager *pager, uint32_t page_num, uint32_t size)
-{
-  if (pager->pages[page_num] == NULL) {
-    printf("Tried to flush null page\n");
-    exit(EXIT_FAILURE);
-  }
-
-  off_t offset = lseek(pager->fd, page_num * PAGE_SIZE, SEEK_SET);
-  if (offset == -1) {
-    printf("Error seeking: %d\n", errno);
-    exit(EXIT_FAILURE);
-  }
-
-  ssize_t bytes_written =
-    write(pager->fd, pager->pages[page_num], size);
-  if (bytes_written == -1) {
-    printf("Error writing: %d\n", errno);
-    exit(EXIT_FAILURE);
-  }
-}
-
-void *db_close(Table *table)
-{
-  Pager *pager = table->pager;
-  uint32_t num_full_pages = table->num_rows / ROWS_PER_PAGE;
-
-  for (uint32_t i = 0; i < num_full_pages; i++) {
-    if (pager->pages[i] == NULL) {
-      continue;
-    }
-    pager_flush(pager, i, PAGE_SIZE);
-    free(pager->pages[i]);
-    pager->pages[i] = NULL;
-  }
-  // There may be a partial page to write to the end of the file
-  // This should not be needed after we switch to a B-tree
-  uint32_t num_additional_rows = table->num_rows % ROWS_PER_PAGE;
-  if (num_additional_rows > 0) {
-    uint32_t page_num = num_full_pages;
-
-    if (pager->pages[page_num] != NULL) {
-      pager_flush(pager, page_num, num_additional_rows * ROW_SIZE);
-      free(pager->pages[page_num]);
-      pager->pages[page_num] = NULL;
-    }
-  }
-
-  int result = close(pager->fd);
-  if (result == -1) {
-    printf("Error closing db file.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
-    void *page = pager->pages[i];
-    if (page) {
-      free(page);
-      pager->pages[i] = NULL;
-    }
-  }
-  free(pager);
-  free(table);
-}
-
-Table *db_open(const char *filename)
-{
-    Pager *pager = pager_open(filename);
-    uint32_t num_rows = pager->file_length / ROW_SIZE;
-
-    Table *table = malloc(sizeof(Table));
-    table->pager = pager;
-    table->num_rows = num_rows;  
-  
-    return table;
-}
-
 // Opens the database file and keeps track of its size. It also initializes the page cache to all NULLs
 Pager *pager_open(const char *filename)
 {
@@ -380,6 +365,18 @@ Pager *pager_open(const char *filename)
   return pager;
 }
 
+Table *db_open(const char *filename)
+{
+    Pager *pager = pager_open(filename);
+    uint32_t num_rows = pager->file_length / ROW_SIZE;
+
+    Table *table = malloc(sizeof(Table));
+    table->pager = pager;
+    table->num_rows = num_rows;  
+  
+    return table;
+}
+
 // REPL
 int main(int argc, char *argv[])
 {
@@ -389,7 +386,7 @@ int main(int argc, char *argv[])
   }
 
   char *filename = argv[1];
-  Table *table = db_open(argv[1]);
+  Table *table = db_open(filename);
   InputBuffer *input = new_input_buffer();
 
   while (true) {
@@ -435,4 +432,3 @@ int main(int argc, char *argv[])
   }
   return 0;
 }
-
