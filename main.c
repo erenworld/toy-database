@@ -89,7 +89,7 @@ typedef struct {
 
 typedef struct {
     Table *table;
-    uint32_t num_rows;
+    uint32_t row_num;
     bool end_of_table;  // Indicates a position one past the last element
 } Cursor;
 
@@ -381,6 +381,38 @@ Table *db_open(const char *filename)
     table->num_rows = num_rows;  
   
     return table;
+}
+
+Cursor *table_start(Table *table)
+{
+    Cursor *cursor = malloc(sizeof(Cursor));
+
+    if (cursor == NULL) {
+        printf("malloc error");
+        exit(EXIT_FAILURE);
+    }
+
+    cursor->table = table;
+    cursor->row_num = 0;
+    cursor->end_of_table = (table->num_rows == 0);
+
+    return cursor;
+}
+
+Cursor *table_end(Table *table)
+{
+    Cursor *cursor = malloc(sizeof(Cursor));
+
+    if (cursor == NULL) {
+        printf("malloc error");
+        exit(EXIT_FAILURE);
+    }
+
+    cursor->table = table;
+    cursor->row_num = table->num_rows;
+    cursor->end_of_table = true;
+
+    return cursor;
 }
 
 // REPL
