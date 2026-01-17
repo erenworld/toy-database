@@ -69,3 +69,12 @@ The next 256 bytes store the email in the same way
 
 
 If we wanted to ensure that all bytes are initialized, it would suffice to use strncpy instead of memcpy while copying the username and email fields of rows in serialize_row
+
+
+## Cursor
+Cursor object which represents a location in the table. Things you might want to do with cursors:
+
+- Create a cursor at the beginning of the table
+- Create a cursor at the end of the table
+- Access the row the cursor is pointing to
+- Advance the cursor to the next row
