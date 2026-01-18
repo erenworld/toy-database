@@ -16,6 +16,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+typedef enum { NODE_INTERNAL, NODE_LEAF } NodeType;
+
 // A small wrapper around the state we need to store to interact with getline()
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
 
@@ -365,7 +367,6 @@ ExecuteResult execute_insert(Statement *statement, Table *table)
 
     serialize_row(row_to_insert, cursor_value(cursor));
     table->num_rows += 1;
-
     free(cursor);
     
     return EXECUTE_SUCCESS;
@@ -399,7 +400,6 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
 Pager *pager_open(const char *filename)
 {
   int fd = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
-  
   if (fd == -1) {
     printf("unable to open file\n");
     exit(EXIT_FAILURE);
@@ -407,7 +407,6 @@ Pager *pager_open(const char *filename)
 
   off_t file_length = lseek(fd, 0, SEEK_END);
   Pager *pager = malloc(sizeof(Pager));
-
   if (pager == NULL) {
     printf("286 - malloc error");
     exit(EXIT_FAILURE);
