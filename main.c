@@ -18,6 +18,16 @@
 
 typedef enum { NODE_INTERNAL, NODE_LEAF } NodeType;
 
+// Node header layout
+const uint32_t NODE_TYPE_SIZE = sizeof(uint8_t);
+const uint32_t NODE_TYPE_OFFSET = 0;
+const uint32_t IS_ROOT_SIZE = sizeof(uint8_t);
+const uint32_t IS_ROOT_OFFSET = NODE_TYPE_SIZE;
+const uint32_t PARENT_POINTER_SIZE = sizeof(uint32_t);
+const uint32_t PARENT_POINTER_OFFSET = IS_ROOT_OFFSET + IS_ROOT_SIZE;
+const uint8_t COMMON_NODE_HEADER_SIZE =
+    NODE_TYPE_SIZE + IS_ROOT_SIZE + PARENT_POINTER_SIZE;
+
 // A small wrapper around the state we need to store to interact with getline()
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
 
