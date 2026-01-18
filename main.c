@@ -70,22 +70,18 @@ const uint32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
 
 const uint32_t PAGE_SIZE = 4096;
 #define TABLE_MAX_PAGES 100
-// max memory 400KB
-const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
-const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
-// ROW_SIZE = 100 bytes
-// 4096 / 100 ≈ 40 line per page
 
 
 typedef struct {
   int fd;
   uint32_t file_length;
+  uint32_t num_pages;
   void *pages[TABLE_MAX_PAGES];
 } Pager;
 
 typedef struct {
-    uint32_t num_rows;
     Pager *pager;
+    uint32_t root_page_num;
 } Table;
 
 typedef struct {
@@ -271,6 +267,10 @@ void *get_page(Pager *pager, uint32_t page_num)
       }
     }
     pager->pages[page_num] = page;
+
+    if (page_num >= pager->num_pages) {
+      pager->num_pages = page_num + 1;
+    }
   }
   return pager->pages[page_num];
 }
@@ -399,6 +399,12 @@ Pager *pager_open(const char *filename)
   }
   pager->fd = fd;
   pager->file_length = file_length;
+  pager->num_pages = (file_length / PAGE_SIZE);
+
+  if (file_length % PAGE_SIZE != 0) {
+    printf("Db file is not a whole number of pages. Corrupt file.\n");
+    exit(EXIT_FAILURE);
+  }
 
   for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
     pager->pages[i] = NULL;
