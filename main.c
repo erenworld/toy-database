@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+
 // A small wrapper around the state we need to store to interact with getline()
 typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
 
@@ -142,7 +143,7 @@ static void read_input(InputBuffer *input)
   input->buffer[bytes_read - 1] = 0;
 }
 
-void pager_flush(Pager *pager, uint32_t page_num, uint32_t size)
+void pager_flush(Pager *pager, uint32_t page_num)
 {
   if (pager->pages[page_num] == NULL) {
     printf("Tried to flush null page\n");
@@ -156,7 +157,7 @@ void pager_flush(Pager *pager, uint32_t page_num, uint32_t size)
   }
 
   ssize_t bytes_written =
-    write(pager->fd, pager->pages[page_num], size);
+    write(pager->fd, pager->pages[page_num], PAGE_SIZE);
   if (bytes_written == -1) {
     printf("Error writing: %d\n", errno);
     exit(EXIT_FAILURE);
@@ -166,27 +167,14 @@ void pager_flush(Pager *pager, uint32_t page_num, uint32_t size)
 void db_close(Table *table)
 {
   Pager *pager = table->pager;
-  uint32_t num_full_pages = table->num_rows / ROWS_PER_PAGE;
 
-  for (uint32_t i = 0; i < num_full_pages; i++) {
+  for (uint32_t i = 0; i < pager->num_pages; i++) {
     if (pager->pages[i] == NULL) {
       continue;
     }
-    pager_flush(pager, i, PAGE_SIZE);
+    pager_flush(pager, i);
     free(pager->pages[i]);
     pager->pages[i] = NULL;
-  }
-  // There may be a partial page to write to the end of the file
-  // This should not be needed after we switch to a B-tree
-  uint32_t num_additional_rows = table->num_rows % ROWS_PER_PAGE;
-  if (num_additional_rows > 0) {
-    uint32_t page_num = num_full_pages;
-
-    if (pager->pages[page_num] != NULL) {
-      pager_flush(pager, page_num, num_additional_rows * ROW_SIZE);
-      free(pager->pages[page_num]);
-      pager->pages[page_num] = NULL;
-    }
   }
 
   int result = close(pager->fd);
