@@ -443,7 +443,7 @@ ExecuteResult execute_insert(Statement *statement, Table *table)
   Row *row_to_insert = &(statement->row_to_insert);
   Cursor *c = table_end(table);
   leaf_node_insert(c, row_to_insert->id, row_to_insert);
-    
+  free(c);
   return EXECUTE_SUCCESS;
 }
 
