@@ -348,23 +348,21 @@ Cursor *table_end(Table *table)
 // Helper to read/write address memory for a particular row 
 void *cursor_value(Cursor *cursor)
 {
-    uint32_t row_num = cursor->row_num; 
+    uint32_t page_num = cursor->page_num;
+      void* page = get_page(cursor->table->pager, page_num);
 
-    uint32_t page_num = row_num / ROWS_PER_PAGE;
-    void *page = get_page(cursor->table->pager, page_num);   
-    uint32_t row_offset = row_num % ROWS_PER_PAGE;
-    uint32_t byte_offset = row_offset * ROW_SIZE;
-
-    return page + byte_offset; // memory pointer
+    return leaf_node_value(page, cursor->cell_num);
 }
 
 void cursor_advance(Cursor *cursor)
 {
-    cursor->row_num += 1;
+  uint32_t page_num = cursor->page_num;
+  void *node = get_page(cursor->table->pager, page_num);
 
-    if (cursor->row_num >= cursor->table->num_rows) {
-        cursor->end_of_table = true;
-    }
+  cursor->cell_num += 1;
+  if (cursor->cell_num >= (*leaf_node_num_cells(node))) {
+    cursor->end_of_table = true;
+  }
 }
 
 PrepareResult prepare_insert(InputBuffer *input, Statement *statement)
