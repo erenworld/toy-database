@@ -85,6 +85,24 @@ const uint32_t PARENT_POINTER_OFFSET = IS_ROOT_OFFSET + IS_ROOT_SIZE;
 const uint8_t COMMON_NODE_HEADER_SIZE =
     NODE_TYPE_SIZE + IS_ROOT_SIZE + PARENT_POINTER_SIZE; // 6
 
+typedef struct {
+  int fd;
+  uint32_t file_length;
+  uint32_t num_pages;
+  void *pages[TABLE_MAX_PAGES];
+} Pager;
+
+typedef struct {
+    Pager *pager;
+    uint32_t root_page_num;
+} Table;
+
+typedef struct {
+    Table *table;
+    uint32_t page_num;
+    uint32_t cell_num;
+    bool end_of_table;  // Indicates a position one past the last element
+} Cursor;
 
 // Leaf Node header layout
 const uint32_t LEAF_NODE_NUM_CELLS_SIZE = sizeof(uint32_t);
@@ -105,8 +123,11 @@ const uint32_t LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_HEADER_SIZE;
 const uint32_t LEAF_NODE_MAX_CELLS =
     LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE;
 
+// prototypes
+void *get_page(Pager *pager, uint32_t page_num);
+void serialize_row(Row *source, void *dest);
 
-// access keys, values and metadata
+
 
 uint32_t *leaf_node_num_cells(void *node)
 {
@@ -133,26 +154,27 @@ void initialize_leaf_node(void *node)
   *leaf_node_num_cells(node) = 0;
 }
 
+void leaf_node_insert(Cursor *cursor, uint32_t key, Row *value)
+{
+  void *node = get_page(cursor->table->pager, cursor->page_num);
+  uint32_t num_cells = *leaf_node_num_cells(node);
+  
+  if (num_cells >= LEAF_NODE_MAX_CELLS) {
+    // node full, split it 
+    printf("Need to implement splitting.\n");
+    exit(EXIT_FAILURE);
+  }
+  if (cursor->cell_num < num_cells) {
+    // make room for new cell
+    for (uint32_t i = num_cells; i > cursor->cell_num; --i) {
+      memcpy(leaf_node_cell(node, i), leaf_node_cell(node, i - 1), LEAF_NODE_CELL_SIZE);
+    }
+  }
 
-typedef struct {
-  int fd;
-  uint32_t file_length;
-  uint32_t num_pages;
-  void *pages[TABLE_MAX_PAGES];
-} Pager;
-
-typedef struct {
-    Pager *pager;
-    uint32_t root_page_num;
-} Table;
-
-typedef struct {
-    Table *table;
-    uint32_t page_num;
-    uint32_t cell_num;
-    bool end_of_table;  // Indicates a position one past the last element
-} Cursor;
-
+  *(leaf_node_num_cells(node)) += 1;
+  *(leaf_node_key(node, cursor->cell_num)) = key;
+  serialize_row(value, leaf_node_value(node, cursor->cell_num));
+}
 
 InputBuffer *new_input_buffer(void)
 {
