@@ -78,3 +78,213 @@ Cursor object which represents a location in the table. Things you might want to
 - Create a cursor at the end of the table
 - Access the row the cursor is pointing to
 - Advance the cursor to the next row
+
+## tree structure 
+each node in the tree can contain a variable number of rows, we store in each node some info to keep track of how many rows it contains. 
+
+| Aspect           | Unsorted Array of rows | Sorted Array of rows | Tree of nodes |
+|------------------|------------------------|----------------------|---------------|
+| Pages contain    | only data              | only data            | metadata, primary keys, and data |
+| Rows per page    | more                   | more                 | fewer         |
+| Insertion        | O(1)                   | O(n)                 | O(log n)      |
+| Deletion         | O(n)                   | O(n)                 | O(log n)      |
+| Lookup by id     | O(n)                   | O(log n)             | O(log n)      |
+
+- one node = one page 
+
+- Internal nodes will point to their children by storing the page number that stores the child 
+- The btree asks the pager for a particular page number and gets back a pointer into the page cache.
+- Pages are stored in the database file one after the other in order of page number.
+- Nodes need to store some metadata in a header at the beginning of the page. Every node will store what type of node it is, whether or not it is the root node, and a pointer to its parent (to allow finding a node’s siblings)
+
+┌─────────────────────────────────┐
+│  EN-TÊTE COMMUN (6 octets)      │
+├──────────┬──────────┬───────────┤
+│ Type     │ Est      │ Pointeur  │
+│ (1 oct)  │ racine?  │ parent    │
+│          │ (1 oct)  │ (4 oct)   │
+└──────────┴──────────┴───────────┘
+   ↑          ↑          ↑
+Position 0  Position 1  Position 2
+
+- **NUM_CELLS** (4 octets) : Combien de données sont stockées dans cette feuille ?
+L'en-tête total d'une feuille = 6 octets (commun) + 4 octets (spécifique) = **10 octets**
+
+
+## CELL (donnee dans une feuille)
+
+Une CELLULE = 1 donnée stockée. Chaque cellule contient 2 parties :
+1. (KEY) (4 octets) : Un numéro unique pour identifier la donnée (comme un ID)
+2. (VALUE) (ROW_SIZE octets) : La donnée elle-même (par exemple : nom, prénom, email d'une personne)
+
+┌─────────────┬──────────────────────────────┐
+│   CLÉ       │        VALEUR                │
+│  (4 oct)    │      (ROW_SIZE octets)       │
+│             │                              │
+│   123       │  "Jean Dupont, 30 ans, ..."  │
+└─────────────┴──────────────────────────────┘
+
+Une PAGE = un bloc de mémoire de taille fixe (par exemple 4096 octets).
+1. **Espace disponible** = Taille totale de la page - Taille de l'en-tête
+2. **Nombre max de cellules** = Espace disponible ÷ Taille d'une cellule
+
+┌─────────────────────────────────────────────┐
+│           UNE PAGE (ex: 4096 octets)        │
+├─────────────────────────────────────────────┤
+│  EN-TÊTE (10 octets)                        │
+│  ┌────────────────────────────────────────┐ │
+│  │ Type│Racine│Parent│Nb cellules         │ │
+│  └────────────────────────────────────────┘ │
+├─────────────────────────────────────────────┤
+│  CELLULE 1 │ Clé: 1  │ Valeur: ...        │ │
+├─────────────────────────────────────────────┤
+│  CELLULE 2 │ Clé: 5  │ Valeur: ...        │ │
+├─────────────────────────────────────────────┤
+│  CELLULE 3 │ Clé: 7  │ Valeur: ...        │ │
+├─────────────────────────────────────────────┤
+│  ...                                        │
+│  (jusqu'à LEAF_NODE_MAX_CELLS)              │
+└─────────────────────────────────────────────┘
+
+Exemple de calcul :
+Si PAGE_SIZE = 4096 octets et CELL_SIZE = 104 octets :
+
+Espace pour cellules = 4096 - 10 = 4086 octets
+Nombre max de cellules = 4086 ÷ 104 = 39 cellules
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    PAGE #1 (4096 octets)                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ╔═══════════════════════════════════════════════════════════╗ │
+│  ║           EN-TÊTE COMMUN (6 octets)                       ║ │
+│  ╠═══════════════╦═══════════════╦═══════════════════════════╣ │
+│  ║ NODE_TYPE     ║ IS_ROOT       ║ PARENT_POINTER            ║ │
+│  ║ 1 octet       ║ 1 octet       ║ 4 octets                  ║ │
+│  ║               ║               ║                           ║ │
+│  ║ Valeur: 1     ║ Valeur: 1     ║ Valeur: 0                 ║ │
+│  ║ (LEAF)        ║ (OUI, racine) ║ (pas de parent)           ║ │
+│  ╚═══════════════╩═══════════════╩═══════════════════════════╝ │
+│                                                                 │
+│  ╔═══════════════════════════════════════════════════════════╗ │
+│  ║        EN-TÊTE SPÉCIFIQUE FEUILLE (4 octets)              ║ │
+│  ╠═══════════════════════════════════════════════════════════╣ │
+│  ║ LEAF_NODE_NUM_CELLS                                       ║ │
+│  ║ 4 octets                                                  ║ │
+│  ║                                                           ║ │
+│  ║ Valeur: 3  (il y a 3 utilisateurs stockés)               ║ │
+│  ╚═══════════════════════════════════════════════════════════╝ │
+│                                                                 │
+│         [FIN DE L'EN-TÊTE : 10 octets utilisés]                │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                        CELLULES (DONNÉES)                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ CELLULE 1 (295 octets)                                    │ │
+│  ├─────────────┬─────────────────────────────────────────────┤ │
+│  │ CLÉ         │ VALEUR (ROW)                                │ │
+│  │ 4 octets    │ 291 octets                                  │ │
+│  ├─────────────┼─────────────────────────────────────────────┤ │
+│  │ 1           │ id: 1                                       │ │
+│  │             │ username: "alice"                           │ │
+│  │             │ email: "alice@example.com"                  │ │
+│  └─────────────┴─────────────────────────────────────────────┘ │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ CELLULE 2 (295 octets)                                    │ │
+│  ├─────────────┬─────────────────────────────────────────────┤ │
+│  │ CLÉ         │ VALEUR (ROW)                                │ │
+│  │ 4 octets    │ 291 octets                                  │ │
+│  ├─────────────┼─────────────────────────────────────────────┤ │
+│  │ 5           │ id: 5                                       │ │
+│  │             │ username: "bob"                             │ │
+│  │             │ email: "bob@example.com"                    │ │
+│  └─────────────┴─────────────────────────────────────────────┘ │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ CELLULE 3 (295 octets)                                    │ │
+│  ├─────────────┬─────────────────────────────────────────────┤ │
+│  │ CLÉ         │ VALEUR (ROW)                                │ │
+│  │ 4 octets    │ 291 octets                                  │ │
+│  ├─────────────┼─────────────────────────────────────────────┤ │
+│  │ 12          │ id: 12                                      │ │
+│  │             │ username: "charlie"                         │ │
+│  │             │ email: "charlie@example.com"                │ │
+│  └─────────────┴─────────────────────────────────────────────┘ │
+│                                                                 │
+│  [ESPACE LIBRE : 3201 octets restants pour futures cellules]   │
+│                                                                 │
+│  Capacité maximale : (4096 - 10) ÷ 295 = 13 cellules max       │
+│  Actuellement utilisées : 3 cellules                            │
+│  Espace utilisé : 10 + (3 × 295) = 895 octets                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+(PAGE_SIZE - HEADER_SIZE) / CELL_SIZE
+
+
+
+## Methods
+
+### leaf_node_num_cells
+Cette fonction donne l’addresse en mémoire où est stocké le nombre de cellules dans une feuille.
+
+node = début de la page (ex: 0x1000)
+LEAF_NODE_NUM_CELLS_OFFSET = 6
+
+offset 0..5   → header commun
+offset 6..9   → num_cells (uint32_t)
+uint32_t *num = leaf_node_num_cells(node);
+*num = 2;
+On va à node + 6
+On écrit 2
+La feuille contient maintenant 2 cellules
+
+
+### leaf_node_cell
+Cette fonction donne l’adresse mémoire de la cellule numéro cell_num dans la feuille.
+
+node = début de la page
+LEAF_NODE_HEADER_SIZE = 10
+LEAF_NODE_CELL_SIZE = taille d’une cellule
+
+[ header (10 bytes) ][ cell 0 ][ cell 1 ][ cell 2 ] ...
+void *cell0 = leaf_node_cell(node, 0);
+void *cell1 = leaf_node_cell(node, 1);
+
+### leaf_node_key
+adresse de la key de la cellule cell_num
+
+[ key (4 bytes) ][ value (ROW_SIZE bytes) ]
+uint32_t *key = leaf_node_key(node, 0);
+*key = 10;
+On va à l’adresse de la cellule 0
+On écrit 10 dans les 4 premiers octets
+
+cell 0:
+[ 10 ][ valeur... ]
+
+### leaf_node_value
+l’adresse de la valeur (la ligne) associée à une clé.
+juste apres key 
+[ key (4 bytes) ][ value (ROW_SIZE bytes) ]
+
+On va à la cellule 0
+On saute 4 octets (la clé)
+On écrit "Alice" dans la zone valeur
+
+```
+char *value = leaf_node_value(node, 0);
+memcpy(value, "Alice", 6);
+```
+clé → offset 0
+valeur → offset +4
+
+cell 0:
+[ key ][ 'A' 'l' 'i' 'c' 'e' 0 ... ]
+
+
+
