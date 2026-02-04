@@ -268,39 +268,6 @@ static void print_row(Row *row)
     printf("(%d, %s, %s)\n", row->id, row->username, row->email);
 }
 
-
-Cursor *table_start(Table *table)
-{
-    Cursor *cursor = malloc(sizeof(Cursor));
-
-    if (cursor == NULL) {
-        printf("malloc error");
-        exit(EXIT_FAILURE);
-    }
-
-    cursor->table = table;
-    cursor->row_num = 0;
-    cursor->end_of_table = (table->num_rows == 0);
-
-    return cursor;
-}
-
-Cursor *table_end(Table *table)
-{
-    Cursor *cursor = malloc(sizeof(Cursor));
-
-    if (cursor == NULL) {
-        printf("malloc error");
-        exit(EXIT_FAILURE);
-    }
-
-    cursor->table = table;
-    cursor->row_num = table->num_rows;
-    cursor->end_of_table = true;
-
-    return cursor;
-}
-
 // The logic for handling a cache miss
 // Page 0 at offset 0, page 1 at offset 4096, page 2 at offset 8192, etc
 void *get_page(Pager *pager, uint32_t page_num)
@@ -336,6 +303,46 @@ void *get_page(Pager *pager, uint32_t page_num)
     }
   }
   return pager->pages[page_num];
+}
+
+Cursor *table_start(Table *table)
+{
+    Cursor *cursor = malloc(sizeof(Cursor));
+
+    if (cursor == NULL) {
+        printf("malloc error");
+        exit(EXIT_FAILURE);
+    }
+
+    cursor->table = table;
+    cursor->page_num = table->root_page_num;
+    cursor->cell_num = 0;
+
+    void *root_node = get_page(table->pager, table->root_page_num);
+    uint32_t num_cells = *leaf_node_num_cells(root_node);
+    cursor->end_of_table = (num_cells == 0);
+
+    return cursor;
+}
+
+Cursor *table_end(Table *table)
+{
+    Cursor *cursor = malloc(sizeof(Cursor));
+
+    if (cursor == NULL) {
+        printf("malloc error");
+        exit(EXIT_FAILURE);
+    }
+
+    cursor->table = table; 
+    cursor->page_num = table->root_page_num;
+    
+    void *root_node = get_page(table->pager, table->root_page_num);
+    uint32_t num_cells = *leaf_node_num_cells(root_node);
+    cursor->cell_num = num_cells;
+    cursor->end_of_table = true;
+
+    return cursor;
 }
 
 // Helper to read/write address memory for a particular row 
