@@ -245,7 +245,7 @@ void sqlitePagerFlush(Pager *pager, uint32_t page_num)
   }
 }
 
-void db_close(Table *table)
+void sqliteDbClose(Table *table)
 {
   Pager *pager = table->pager;
 
@@ -288,7 +288,7 @@ void print_leaf_node(void* node) {
 MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
 {
   if (strcmp(input->buffer, ".exit") == 0) {
-    db_close(table);
+    sqliteDbClose(table);
     exit(EXIT_SUCCESS);
   } else if (strcmp(input->buffer, ".constants") == 0) {
     printf("Constants:\n");
