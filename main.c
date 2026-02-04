@@ -387,7 +387,7 @@ PrepareResult prepare_insert(InputBuffer *input, Statement *statement)
     return PREPARE_STRING_TOO_LONG;
   }
   if (strlen(email) > COLUMN_EMAIL_SIZE) {
-   return PREPARE_STRING_TOO_LONG;
+    return PREPARE_STRING_TOO_LONG;
   }
 
   statement->row_to_insert.id = id;
@@ -483,12 +483,16 @@ Pager *pager_open(const char *filename)
 Table *db_open(const char *filename)
 {
     Pager *pager = pager_open(filename);
-    uint32_t num_rows = pager->file_length / ROW_SIZE;
 
     Table *table = malloc(sizeof(Table));
     table->pager = pager;
-    // table->num_rows = num_rows;  
-  
+    table->root_page_num = 0;
+
+    if (pager->num_pages == 0) {
+        // New db file. Initialize page 0 as leaf node.
+      void *root_node = get_page(pager, 0);
+      initialize_leaf_node(root_node);
+    }
     return table;
 }
 
