@@ -124,7 +124,7 @@ const uint32_t LEAF_NODE_MAX_CELLS =
     LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE;
 
 // prototypes
-void *get_page(Pager *pager, uint32_t page_num);
+void *sqlitePagerGet(Pager *pager, uint32_t page_num);
 void serialize_row(Row *source, void *dest);
 void print_constants();
 
@@ -156,7 +156,7 @@ void initialize_leaf_node(void *node)
 
 void leaf_node_insert(Cursor *cursor, uint32_t key, Row *value)
 {
-  void *node = get_page(cursor->table->pager, cursor->page_num);
+  void *node = sqlitePagerGet(cursor->table->pager, cursor->page_num);
   uint32_t num_cells = *leaf_node_num_cells(node);
   
   if (num_cells >= LEAF_NODE_MAX_CELLS) {
@@ -224,7 +224,7 @@ static void read_input(InputBuffer *input)
   input->buffer[bytes_read - 1] = 0;
 }
 
-void pager_flush(Pager *pager, uint32_t page_num)
+void sqlitePagerFlush(Pager *pager, uint32_t page_num)
 {
   if (pager->pages[page_num] == NULL) {
     printf("Tried to flush null page\n");
@@ -253,7 +253,7 @@ void db_close(Table *table)
     if (pager->pages[i] == NULL) {
       continue;
     }
-    pager_flush(pager, i);
+    sqlitePagerFlush(pager, i);
     free(pager->pages[i]);
     pager->pages[i] = NULL;
   }
@@ -296,7 +296,7 @@ MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
     return META_CMD_SUCCESS;
   } else if (strcmp(input->buffer, ".btree") == 0) {
     printf("Tree: \n");
-    print_leaf_node(get_page(table->pager, 0));
+    print_leaf_node(sqlitePagerGet(table->pager, 0));
     return META_CMD_SUCCESS;
   } else {
     return META_CMD_UNRECOGNIZED;
@@ -310,7 +310,7 @@ static void print_row(Row *row)
 
 // The logic for handling a cache miss
 // Page 0 at offset 0, page 1 at offset 4096, page 2 at offset 8192, etc
-void *get_page(Pager *pager, uint32_t page_num)
+void *sqlitePagerGet(Pager *pager, uint32_t page_num)
 {
   if (page_num > TABLE_MAX_PAGES) {
     printf("Tried to fetch page number out of bounds. %d > %d\n", page_num,
@@ -358,7 +358,7 @@ Cursor *table_start(Table *table)
     cursor->page_num = table->root_page_num;
     cursor->cell_num = 0;
 
-    void *root_node = get_page(table->pager, table->root_page_num);
+    void *root_node = sqlitePagerGet(table->pager, table->root_page_num);
     uint32_t num_cells = *leaf_node_num_cells(root_node);
     cursor->end_of_table = (num_cells == 0);
 
@@ -377,7 +377,7 @@ Cursor *table_end(Table *table)
     cursor->table = table; 
     cursor->page_num = table->root_page_num;
     
-    void *root_node = get_page(table->pager, table->root_page_num);
+    void *root_node = sqlitePagerGet(table->pager, table->root_page_num);
     uint32_t num_cells = *leaf_node_num_cells(root_node);
     cursor->cell_num = num_cells;
     cursor->end_of_table = true;
@@ -389,7 +389,7 @@ Cursor *table_end(Table *table)
 void *cursor_value(Cursor *cursor)
 {
     uint32_t page_num = cursor->page_num;
-      void* page = get_page(cursor->table->pager, page_num);
+      void* page = sqlitePagerGet(cursor->table->pager, page_num);
 
     return leaf_node_value(page, cursor->cell_num);
 }
@@ -397,7 +397,7 @@ void *cursor_value(Cursor *cursor)
 void cursor_advance(Cursor *cursor)
 {
   uint32_t page_num = cursor->page_num;
-  void *node = get_page(cursor->table->pager, page_num);
+  void *node = sqlitePagerGet(cursor->table->pager, page_num);
 
   cursor->cell_num += 1;
   if (cursor->cell_num >= (*leaf_node_num_cells(node))) {
@@ -453,7 +453,7 @@ PrepareResult prepare_statement(InputBuffer *input, Statement *statement)
 
 ExecuteResult execute_insert(Statement *statement, Table *table)
 {
-  void *node = get_page(table->pager, table->root_page_num);
+  void *node = sqlitePagerGet(table->pager, table->root_page_num);
   
   if ((*leaf_node_num_cells(node) >= LEAF_NODE_MAX_CELLS)) {
     return EXECUTE_TABLE_FULL;
@@ -490,7 +490,7 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
 }
 
 // Opens the database file and keeps track of its size. It also initializes the page cache to all NULLs
-Pager *pager_open(const char *filename)
+Pager *sqlitePagerOpen(const char *filename)
 {
   int fd = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
   if (fd == -1) {
@@ -521,7 +521,7 @@ Pager *pager_open(const char *filename)
 
 Table *db_open(const char *filename)
 {
-    Pager *pager = pager_open(filename);
+    Pager *pager = sqlitePagerOpen(filename);
 
     Table *table = malloc(sizeof(Table));
     table->pager = pager;
@@ -529,7 +529,7 @@ Table *db_open(const char *filename)
 
     if (pager->num_pages == 0) {
         // New db file. Initialize page 0 as leaf node.
-      void *root_node = get_page(pager, 0);
+      void *root_node = sqlitePagerGet(pager, 0);
       initialize_leaf_node(root_node);
     }
     return table;
