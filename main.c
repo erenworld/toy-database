@@ -275,6 +275,16 @@ void db_close(Table *table)
   free(table);
 }
 
+void print_leaf_node(void* node) {
+  uint32_t num_cells = *leaf_node_num_cells(node);
+  printf("leaf (size %d)\n", num_cells);
+
+  for (uint32_t i = 0; i < num_cells; i++) {
+    uint32_t key = *leaf_node_key(node, i);
+    printf("  - %d : %d\n", i, key);
+  }
+}
+
 MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
 {
   if (strcmp(input->buffer, ".exit") == 0) {
@@ -283,6 +293,10 @@ MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
   } else if (strcmp(input->buffer, ".constants") == 0) {
     printf("Constants:\n");
     print_constants();
+    return META_CMD_SUCCESS;
+  } else if (strcmp(input->buffer, ".btree") == 0) {
+    printf("Tree: \n");
+    print_leaf_node(get_page(table->pager, 0));
     return META_CMD_SUCCESS;
   } else {
     return META_CMD_UNRECOGNIZED;
