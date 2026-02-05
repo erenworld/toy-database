@@ -18,9 +18,17 @@
 
 
 // A small wrapper around the state we need to store to interact with getline()
-typedef struct { char *buffer; size_t buffer_length; ssize_t input_length; } InputBuffer;
+typedef struct {
+  char *buffer; 
+  size_t buffer_length; 
+  ssize_t input_length; 
+} InputBuffer;
 
-typedef enum { EXECUTE_SUCCESS, EXECUTE_TABLE_FULL } ExecuteResult;
+typedef enum { 
+  EXECUTE_SUCCESS, 
+  EXECUTE_TABLE_FULL, 
+  EXECUTE_DUPLICATE_KEY 
+} ExecuteResult;
 
 typedef enum 
 {
@@ -129,7 +137,7 @@ void serialize_row(Row *source, void *dest);
 void print_constants();
 
 
-uint32_t *leaf_node_num_cells(void *node)
+uint32_t *btreeLeafCount(void *node)
 {
   return node + LEAF_NODE_NUM_CELLS_OFFSET;
 }
@@ -139,7 +147,7 @@ void *leaf_node_cell(void *node, uint32_t cell_num)
   return node + LEAF_NODE_HEADER_SIZE + cell_num * LEAF_NODE_CELL_SIZE;
 }
 
-uint32_t *leaf_node_key(void *node, uint32_t cell_num)
+uint32_t *btreeLeafKey(void *node, uint32_t cell_num)
 {
   return leaf_node_cell(node, cell_num);
 }
@@ -149,15 +157,15 @@ void *leaf_node_value(void *node, uint32_t cell_num)
   return leaf_node_cell(node, cell_num) + LEAF_NODE_KEY_SIZE;
 }
 
-void initialize_leaf_node(void *node) 
+void btreeInitLeafNode(void *node) 
 {
-  *leaf_node_num_cells(node) = 0;
+  *btreeLeafCount(node) = 0;
 }
 
-void leaf_node_insert(Cursor *cursor, uint32_t key, Row *value)
+void sqliteBtreeInsert(Cursor *cursor, uint32_t key, Row *value)
 {
   void *node = sqlitePagerGet(cursor->table->pager, cursor->page_num);
-  uint32_t num_cells = *leaf_node_num_cells(node);
+  uint32_t num_cells = *btreeLeafCount(node);
   
   if (num_cells >= LEAF_NODE_MAX_CELLS) {
     // node full, split it 
@@ -171,8 +179,8 @@ void leaf_node_insert(Cursor *cursor, uint32_t key, Row *value)
     }
   }
 
-  *(leaf_node_num_cells(node)) += 1;
-  *(leaf_node_key(node, cursor->cell_num)) = key;
+  *(btreeLeafCount(node)) += 1;
+  *(btreeLeafKey(node, cursor->cell_num)) = key;
   serialize_row(value, leaf_node_value(node, cursor->cell_num));
 }
 
@@ -276,11 +284,11 @@ void sqliteDbClose(Table *table)
 }
 
 void print_leaf_node(void* node) {
-  uint32_t num_cells = *leaf_node_num_cells(node);
+  uint32_t num_cells = *btreeLeafCount(node);
   printf("leaf (size %d)\n", num_cells);
 
   for (uint32_t i = 0; i < num_cells; i++) {
-    uint32_t key = *leaf_node_key(node, i);
+    uint32_t key = *btreeLeafKey(node, i);
     printf("  - %d : %d\n", i, key);
   }
 }
@@ -359,28 +367,8 @@ Cursor *table_start(Table *table)
     cursor->cell_num = 0;
 
     void *root_node = sqlitePagerGet(table->pager, table->root_page_num);
-    uint32_t num_cells = *leaf_node_num_cells(root_node);
+    uint32_t num_cells = *btreeLeafCount(root_node);
     cursor->end_of_table = (num_cells == 0);
-
-    return cursor;
-}
-
-Cursor *table_end(Table *table)
-{
-    Cursor *cursor = malloc(sizeof(Cursor));
-
-    if (cursor == NULL) {
-        printf("malloc error");
-        exit(EXIT_FAILURE);
-    }
-
-    cursor->table = table; 
-    cursor->page_num = table->root_page_num;
-    
-    void *root_node = sqlitePagerGet(table->pager, table->root_page_num);
-    uint32_t num_cells = *leaf_node_num_cells(root_node);
-    cursor->cell_num = num_cells;
-    cursor->end_of_table = true;
 
     return cursor;
 }
@@ -400,7 +388,7 @@ void cursor_advance(Cursor *cursor)
   void *node = sqlitePagerGet(cursor->table->pager, page_num);
 
   cursor->cell_num += 1;
-  if (cursor->cell_num >= (*leaf_node_num_cells(node))) {
+  if (cursor->cell_num >= (*btreeLeafCount(node))) {
     cursor->end_of_table = true;
   }
 }
@@ -451,17 +439,82 @@ PrepareResult prepare_statement(InputBuffer *input, Statement *statement)
   return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
+Cursor *leaf_node_find(Table *table, uint32_t page_num, uint32_t key)
+{
+  void *node = sqlitePagerGet(table->pager, page_num);
+  uint32_t num_cells = *btreeLeafCount(node);
+
+  Cursor *cursor = malloc(sizeof(Cursor));
+  cursor->table = table;
+  cursor->page_num = page_num;
+
+  // binary search
+  uint32_t min_index = 0;
+  uint32_t one_past_max_index = num_cells;
+  while (one_past_max_index != min_index) {
+    uint32_t index = (min_index + one_past_max_index) / 2;
+    uint32_t key_at_index = *btreeLeafKey(node, index);
+    if (key == key_at_index) {
+      cursor->cell_num = index;
+      return cursor;
+    }
+    if (key < key_at_index) {
+      one_past_max_index = index;
+    } else {
+      min_index = index + 1;
+    }
+  }
+  cursor->cell_num = min_index;
+  return cursor;
+}
+
+NodeType sqliteNodeType(void *node)
+{
+  uint8_t value = *((uint8_t*)(node + NODE_TYPE_OFFSET));
+  return (NodeType)value;
+}
+
+void sqliteSetNodeType(void *node, NodeType type)
+{
+  uint8_t value = type;
+  *((uint8_t*)(node + NODE_TYPE_OFFSET)) = value;
+}
+
+// Return the position of the given key/ If the key is not present, return the position where it should be inserted
+Cursor *sqliteBtreeSearch(Table *table, uint32_t key)
+{
+  uint32_t root_page_num = table->root_page_num;
+  void *root_node = sqlitePagerGet(table->pager, root_page_num);
+
+  if (sqliteNodeType(root_node) == NODE_LEAF) {
+    return leaf_node_find(table, root_page_num, key);
+  } else {
+    printf("Need to implement searching an internal node\n");
+    exit(EXIT_FAILURE);
+  }
+}
+
 ExecuteResult execute_insert(Statement *statement, Table *table)
 {
   void *node = sqlitePagerGet(table->pager, table->root_page_num);
-  
-  if ((*leaf_node_num_cells(node) >= LEAF_NODE_MAX_CELLS)) {
+  uint32_t num_cells = (*btreeLeafCount(node));
+
+  if (num_cells >= LEAF_NODE_MAX_CELLS) {
     return EXECUTE_TABLE_FULL;
   }
   Row *row_to_insert = &(statement->row_to_insert);
-  Cursor *c = table_end(table);
-  leaf_node_insert(c, row_to_insert->id, row_to_insert);
-  free(c);
+  uint32_t key_to_insert = row_to_insert->id;
+  Cursor *cursor = sqliteBtreeSearch(table, key_to_insert);
+  
+  if (cursor->cell_num < num_cells) {
+    uint32_t key_at_index = *btreeLeafKey(node, cursor->cell_num);
+    if (key_at_index == key_to_insert) {
+      return EXECUTE_DUPLICATE_KEY;
+    }
+  }
+
+  sqliteBtreeInsert(cursor, row_to_insert->id, row_to_insert);
+  free(cursor);
   return EXECUTE_SUCCESS;
 }
 
@@ -519,7 +572,7 @@ Pager *sqlitePagerOpen(const char *filename)
   return pager;
 }
 
-Table *db_open(const char *filename)
+Table *sqliteOpen(const char *filename)
 {
     Pager *pager = sqlitePagerOpen(filename);
 
@@ -530,7 +583,7 @@ Table *db_open(const char *filename)
     if (pager->num_pages == 0) {
         // New db file. Initialize page 0 as leaf node.
       void *root_node = sqlitePagerGet(pager, 0);
-      initialize_leaf_node(root_node);
+      btreeInitLeafNode(root_node);
     }
     return table;
 }
@@ -555,7 +608,7 @@ int main(int argc, char *argv[])
   }
 
   char *filename = argv[1];
-  Table *table = db_open(filename);
+  Table *table = sqliteOpen(filename);
   InputBuffer *input = new_input_buffer();
 
   while (true) {
