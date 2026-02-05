@@ -137,6 +137,9 @@ void serialize_row(Row *source, void *dest);
 void print_constants();
 
 
+// Until we start recycling free pages, new pages will always go onto the end of the database file
+uint32_t get_unused_page_num(Pager *pager) { return pager->num_pages; }
+
 uint32_t *btreeLeafCount(void *node)
 {
   return node + LEAF_NODE_NUM_CELLS_OFFSET;
@@ -216,6 +219,50 @@ void btreeInitLeafNode(void *node)
 {
   sqliteSetNodeType(node, NODE_LEAF);
   *btreeLeafCount(node) = 0;
+}
+
+void sqliteNodeSplitInsert(Cursor *cursor, uint32_t key, Row *value)
+{
+  // Create a new node and move half the cells over
+  // Insert the new value in one of the two nodes
+  // Update parent or create a new parent
+  
+  void *old_node = sqlitePagerGet(cursor->table->pager, cursor->page_num);
+  uint32_t new_page_num = get_unused_page_num(cursor->table->pager);
+  void *new_node = sqlitePagerGet(cursor->table->pager, new_page_num);
+  btreeInitLeafNode(new_node);
+
+  // All existing keys plus new key should be divided evenly between old (left)
+  // and new (right) nodes.
+  // Starting from right, move each key to correct position.
+  for (int32_t i = LEAF_NODE_MAX_CELLS; i >= 0; i--) {
+    void *dest_node;
+    if (i >= LEAF_NODE_LEFT_SPLIT_COUNT) {
+      dest_node = new_node;
+    } else {
+      dest_node = old_node;
+    }
+    uint32_t index_within_node = i % LEAF_NODE_LEFT_SPLIT_COUNT;
+    void *dest = leaf_node_cell(dest_node, index_within_node);
+
+    if (i == cursor->cell_num) {
+      serialize_row(value, dest);
+    } else if (i > cursor->cell_num) {
+      memcpy(dest, leaf_node_cell(old_node, i-1), LEAF_NODE_CELL_SIZE);
+    } else {
+      memcpy(dest, leaf_node_cell(old_node, i), LEAF_NODE_CELL_SIZE);
+    }
+    // Update cell count on both leaf nodes
+    *(btreeLeafCount(old_node)) = LEAF_NODE_LEFT_SPLIT_COUNT;
+    *(btreeLeafCount(new_node)) = LEAF_NODE_RIGHT_SPLIT_COUNT;
+
+    if (is_node_root(old_node)) {
+      return create_new_root(cursor->table, new_page_num);
+    } else {
+      printf("Need to implement updating parent after split");
+      exit(EXIT_FAILURE);
+    }
+  }
 }
 
 void sqliteBtreeInsert(Cursor *cursor, uint32_t key, Row *value)
