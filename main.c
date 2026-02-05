@@ -157,7 +157,6 @@ void *leaf_node_value(void *node, uint32_t cell_num)
   return leaf_node_cell(node, cell_num) + LEAF_NODE_KEY_SIZE;
 }
 
-
 Cursor *leaf_node_find(Table *table, uint32_t page_num, uint32_t key)
 {
   void *node = sqlitePagerGet(table->pager, page_num);
@@ -226,8 +225,8 @@ void sqliteBtreeInsert(Cursor *cursor, uint32_t key, Row *value)
   
   if (num_cells >= LEAF_NODE_MAX_CELLS) {
     // node full, split it 
-    printf("Need to implement splitting.\n");
-    exit(EXIT_FAILURE);
+    sqliteNodeSplitInsert(cursor, key, value); 
+    return;
   }
   if (cursor->cell_num < num_cells) {
     // make room for new cell
@@ -501,9 +500,6 @@ ExecuteResult execute_insert(Statement *statement, Table *table)
   void *node = sqlitePagerGet(table->pager, table->root_page_num);
   uint32_t num_cells = (*btreeLeafCount(node));
 
-  if (num_cells >= LEAF_NODE_MAX_CELLS) {
-    return EXECUTE_TABLE_FULL;
-  }
   Row *row_to_insert = &(statement->row_to_insert);
   uint32_t key_to_insert = row_to_insert->id;
   Cursor *cursor = sqliteBtreeSearch(table, key_to_insert);
