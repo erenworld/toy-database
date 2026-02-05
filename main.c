@@ -393,7 +393,7 @@ void *sqlitePagerGet(Pager *pager, uint32_t page_num)
       num_pages += 1;
     }
 
-    if (page_num < num_pages) {
+    if (page_num <= num_pages) {
       lseek(pager->fd, page_num * PAGE_SIZE, SEEK_SET);
       ssize_t bytes_read = read(pager->fd, page, PAGE_SIZE);
       if (bytes_read == -1) {
@@ -542,7 +542,7 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
     case (STATEMENT_SELECT):
       return execute_select(statement, table);
     default:
-      printf("Error: Unknown statement type.\n");
+      fprintf(stderr, "Unknown statement type\n");
       exit(EXIT_FAILURE);
   }
 }
