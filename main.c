@@ -66,7 +66,7 @@ typedef struct
   Row row_to_insert;
 } Statement;
 
-#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute); 
+#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
 
 const uint32_t ID_SIZE = size_of_attribute(Row, id);
 const uint32_t USERNAME_SIZE = size_of_attribute(Row, username);
@@ -393,7 +393,7 @@ void *sqlitePagerGet(Pager *pager, uint32_t page_num)
       num_pages += 1;
     }
 
-    if (page_num <= num_pages) {
+    if (page_num < num_pages) {
       lseek(pager->fd, page_num * PAGE_SIZE, SEEK_SET);
       ssize_t bytes_read = read(pager->fd, page, PAGE_SIZE);
       if (bytes_read == -1) {
