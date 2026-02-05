@@ -541,6 +541,9 @@ ExecuteResult execute_statement(Statement *statement, Table *table)
       return execute_insert(statement, table);
     case (STATEMENT_SELECT):
       return execute_select(statement, table);
+    default:
+      printf("Error: Unknown statement type.\n");
+      exit(EXIT_FAILURE);
   }
 }
 
