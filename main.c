@@ -188,8 +188,21 @@ uint32_t *internal_node_child(void *node, uint32_t child_num)
 
 uint32_t *internal_node_key(void *node, uint32_t key_num)
 {
-  return internal_node_cell(node, key_num) + INTERNAL_NODE_CHILD_SIZE;
+  return internal_node_cell(node, key_num);
 }
+
+// For an internal node, the maximum key is always its right key.
+// For a leaf node, it's the key at the maximum index.
+uint32_t get_node_max_key(void *node)
+{
+  switch (get_node_type(node)) {
+    case NODE_INTERNAL:
+      return *internal_node_key(node, *internal_node_num_keys(node) - 1);
+    case NODE_LEAF:
+      return *leaf_node_key(node, *leaf_node_num_cells(node) - 1);
+  }
+}
+
 
 // Until we start recycling free pages, new pages will always go onto the end of the database file
 uint32_t get_unused_page_num(Pager *pager) { return pager->num_pages; }
