@@ -203,6 +203,18 @@ uint32_t get_node_max_key(void *node)
   }
 }
 
+// Getter and setter
+bool is_node_root(void *node)
+{
+  uint8_t value = *((uint8_t *)(node + IS_ROOT_OFFSET));
+  return (bool)value;
+}
+
+void set_node_root(void *node, bool is_root)
+{
+  uint8_t value = is_root;
+  *((uint8_t*)(node + IS_ROOT_OFFSET)) = value;
+}
 
 // Until we start recycling free pages, new pages will always go onto the end of the database file
 uint32_t get_unused_page_num(Pager *pager) { return pager->num_pages; }
