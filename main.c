@@ -16,8 +16,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-
-// A small wrapper around the state we need to store to interact with getline()
 typedef struct {
   char *buffer; 
   size_t buffer_length; 
@@ -172,6 +170,25 @@ uint32_t *internal_node_cell(void *node, uint32_t cell_num)
   return node + INTERNAL_NODE_HEADER_SIZE + cell_num * INTERNAL_NODE_CELL_SIZE;
 }
 
+uint32_t* leaf_node_num_cells(void* node) {
+  return node + LEAF_NODE_NUM_CELLS_OFFSET;
+}
+
+void *leaf_node_cell(void *node, uint32_t cell_num)
+{
+  return node + LEAF_NODE_HEADER_SIZE + cell_num * LEAF_NODE_CELL_SIZE;
+}
+
+void *leaf_node_value(void *node, uint32_t cell_num)
+{
+  return leaf_node_cell(node, cell_num) + LEAF_NODE_KEY_SIZE;
+}
+
+uint32_t *btreeLeafKey(void *node, uint32_t cell_num)
+{
+  return leaf_node_cell(node, cell_num);
+}
+
 uint32_t *internal_node_child(void *node, uint32_t child_num)
 {
   uint32_t num_keys = *internal_node_num_keys(node);
@@ -184,6 +201,11 @@ uint32_t *internal_node_child(void *node, uint32_t child_num)
   } else {
     return internal_node_cell(node, child_num);
   }
+}
+
+NodeType get_node_type(void* node) {
+  uint8_t value = *((uint8_t*)(node + NODE_TYPE_OFFSET));
+  return (NodeType)value;
 }
 
 uint32_t *internal_node_key(void *node, uint32_t key_num)
@@ -199,7 +221,7 @@ uint32_t get_node_max_key(void *node)
     case NODE_INTERNAL:
       return *internal_node_key(node, *internal_node_num_keys(node) - 1);
     case NODE_LEAF:
-      return *leaf_node_key(node, *leaf_node_num_cells(node) - 1);
+      return *btreeLeafKey(node, *leaf_node_num_cells(node) - 1);
   }
 }
 
@@ -224,20 +246,6 @@ uint32_t *btreeLeafCount(void *node)
   return node + LEAF_NODE_NUM_CELLS_OFFSET;
 }
 
-void *leaf_node_cell(void *node, uint32_t cell_num)
-{
-  return node + LEAF_NODE_HEADER_SIZE + cell_num * LEAF_NODE_CELL_SIZE;
-}
-
-uint32_t *btreeLeafKey(void *node, uint32_t cell_num)
-{
-  return leaf_node_cell(node, cell_num);
-}
-
-void *leaf_node_value(void *node, uint32_t cell_num)
-{
-  return leaf_node_cell(node, cell_num) + LEAF_NODE_KEY_SIZE;
-}
 
 Cursor *leaf_node_find(Table *table, uint32_t page_num, uint32_t key)
 {
@@ -305,7 +313,7 @@ void btreeInitInternalNode(void *node)
 {
   sqliteSetNodeType(node, NODE_INTERNAL);
   set_node_root(node, false);
-  *interal_node_num_keys(node) = 0;
+  *internal_node_num_keys(node) = 0;
 }
 
 void create_new_root(Table *table, uint32_t right_child_page_num)
@@ -322,7 +330,7 @@ void create_new_root(Table *table, uint32_t right_child_page_num)
   // Root node is a new internal node with one key and two children
   btreeInitInternalNode(root);
   set_node_root(root, true);
-  *internal_node_nums_keys(root) = 1;
+  *internal_node_num_keys(root) = 1;
   *internal_node_child(root, 0) = left_child_page_num;
   uint32_t left_child_max_key = get_node_max_key(left_child);
   *internal_node_key(root, 0) = left_child_max_key;
@@ -336,7 +344,7 @@ void sqliteNodeSplitInsert(Cursor *cursor, uint32_t key, Row *value)
   void *new_node = sqlitePagerGet(cursor->table->pager, new_page_num);
   btreeInitLeafNode(new_node);
 
-  for (int32_t i = LEAF_NODE_MAX_CELLS; i >= 0; i--) {
+  for (uint32_t i = LEAF_NODE_MAX_CELLS; i >= 0; i--) {
     void *dest_node;
     if (i >= LEAF_NODE_LEFT_SPLIT_COUNT) {
       dest_node = new_node;
@@ -487,13 +495,42 @@ void sqliteDbClose(Table *table)
   free(table);
 }
 
-void print_leaf_node(void* node) {
-  uint32_t num_cells = *btreeLeafCount(node);
-  printf("leaf (size %d)\n", num_cells);
+void indent(uint32_t level)
+{
+  for (uint32_t i = 0; i < level; i++) {
+    printf("  ");
+  }
+}
 
-  for (uint32_t i = 0; i < num_cells; i++) {
-    uint32_t key = *btreeLeafKey(node, i);
-    printf("  - %d : %d\n", i, key);
+void print_tree(Pager *pager, uint32_t page_num, uint32_t indentation_level)
+{
+  void *node = sqlitePagerGet(pager, page_num);
+  uint32_t num_keys, child;
+
+  switch (get_node_type(node)) {
+    case (NODE_LEAF):
+      num_keys = *leaf_node_num_cells(node);
+      indent(indentation_level);
+      printf("- leaf (size %d)\n", num_keys);
+      for (uint32_t i = 0; i < num_keys; i++) {
+        indent(indentation_level + 1);
+        printf("- %d\n", *btreeLeafKey(node, i));
+      }
+      break;
+    case (NODE_INTERNAL):
+      num_keys = *internal_node_num_keys(node);
+      indent(indentation_level);
+      printf("- internal (size %d)\n", num_keys);
+      for (uint32_t i = 0; i < num_keys; i++) {
+        child = *internal_node_child(node, i);
+        print_tree(pager, child, indentation_level + 1);
+
+        indent(indentation_level + 1);
+        printf("- key %d\n", *internal_node_key(node, i));
+      }
+      child = *internal_node_right_child(node);
+      print_tree(pager, child, indentation_level + 1);
+      break;
   }
 }
 
@@ -508,7 +545,7 @@ MetaCommandResult do_meta_cmd(InputBuffer *input, Table* table)
     return META_CMD_SUCCESS;
   } else if (strcmp(input->buffer, ".btree") == 0) {
     printf("Tree: \n");
-    print_leaf_node(sqlitePagerGet(table->pager, 0));
+    print_tree(table->pager, 0, 0);
     return META_CMD_SUCCESS;
   } else {
     return META_CMD_UNRECOGNIZED;
