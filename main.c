@@ -156,6 +156,41 @@ void *sqlitePagerGet(Pager *pager, uint32_t page_num);
 void serialize_row(Row *source, void *dest);
 void print_constants();
 
+// Reading and writing to an internal node
+uint32_t *internal_node_num_keys(void *node)
+{
+  return node + INTERNAL_NODE_NUM_KEYS_OFFSET;
+}
+
+uint32_t *internal_node_right_child(void *node)
+{
+  return node + INTERNAL_NODE_RIGHT_CHILD_OFFSET;
+}
+
+uint32_t *internal_node_cell(void *node, uint32_t cell_num)
+{
+  return node + INTERNAL_NODE_HEADER_SIZE + cell_num * INTERNAL_NODE_CELL_SIZE;
+}
+
+uint32_t *internal_node_child(void *node, uint32_t child_num)
+{
+  uint32_t num_keys = *internal_node_num_keys(node);
+
+  if (child_num > num_keys) {
+    printf("Tried to access child_num %d > num_keys %d\n", child_num, num_keys);
+    exit(EXIT_FAILURE);
+  } else if (child_num == num_keys) {
+    return internal_node_right_child(node);
+  } else {
+    return internal_node_cell(node, child_num);
+  }
+}
+
+uint32_t *internal_node_key(void *node, uint32_t key_num)
+{
+  return internal_node_cell(node, key_num) + INTERNAL_NODE_CHILD_SIZE;
+}
+
 // Until we start recycling free pages, new pages will always go onto the end of the database file
 uint32_t get_unused_page_num(Pager *pager) { return pager->num_pages; }
 
