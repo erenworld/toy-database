@@ -12,7 +12,7 @@ OBJ     = $(SRC:.c=.o)
 # Compiler and flags
 CC      = gcc
 CFLAGS  = -std=c99 \
-          -Wall -Wextra -Wno-unused-parameter \
+        -Wall -Wextra -Wno-unused-parameter \
 
 LDFLAGS = -fsanitize=address \
 

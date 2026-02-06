@@ -225,27 +225,41 @@ void btreeInitLeafNode(void *node)
   *btreeLeafCount(node) = 0;
 }
 
+void create_new_root(Table *table, uint32_t right_child_page_num)
+{
+  void *root = sqlitePagerGet(table->pager, table->root_page_num);
+  void *right_child = sqlitePagerGet(table->pager, right_child_page_num);
+  uint32_t left_child_page_num = get_unused_page_num(table->pager);
+  void *left_child = sqlitePagerGet(table->pager, left_child_page_num);
+
+  // Left child has data copied from old root
+  memcpy(left_child, root, PAGE_SIZE);
+  set_node_root(left_child, false);
+
+  // Root node is a new internal node with one key and two children
+  initialize_internal_node(root);
+  set_node_root(root, true);
+  *internal_node_nums_keys(root) = 1;
+  *internal_node_child(root, 0) = left_child_page_num;
+  uint32_t left_child_max_key = get_node_max_key(left_child);
+  *internal_node_key(root, 0) = left_child_max_key;
+  *internal_node_right_child(root) = right_child_page_num;
+}
+
 void sqliteNodeSplitInsert(Cursor *cursor, uint32_t key, Row *value)
 {
-  // Create a new node and move half the cells over
-  // Insert the new value in one of the two nodes
-  // Update parent or create a new parent
-  
   void *old_node = sqlitePagerGet(cursor->table->pager, cursor->page_num);
   uint32_t new_page_num = get_unused_page_num(cursor->table->pager);
   void *new_node = sqlitePagerGet(cursor->table->pager, new_page_num);
   btreeInitLeafNode(new_node);
 
-  // All existing keys plus new key should be divided evenly between old (left)
-  // and new (right) nodes.
-  // Starting from right, move each key to correct position.
   for (int32_t i = LEAF_NODE_MAX_CELLS; i >= 0; i--) {
     void *dest_node;
     if (i >= LEAF_NODE_LEFT_SPLIT_COUNT) {
       dest_node = new_node;
     } else {
       dest_node = old_node;
-    }
+    } 
     uint32_t index_within_node = i % LEAF_NODE_LEFT_SPLIT_COUNT;
     void *dest = leaf_node_cell(dest_node, index_within_node);
 
