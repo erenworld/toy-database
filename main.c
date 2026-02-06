@@ -297,7 +297,15 @@ Cursor *sqliteBtreeSearch(Table *table, uint32_t key)
 void btreeInitLeafNode(void *node) 
 {
   sqliteSetNodeType(node, NODE_LEAF);
+  set_node_root(node, false);
   *btreeLeafCount(node) = 0;
+}
+
+void btreeInitInternalNode(void *node)
+{
+  sqliteSetNodeType(node, NODE_INTERNAL);
+  set_node_root(node, false);
+  *interal_node_num_keys(node) = 0;
 }
 
 void create_new_root(Table *table, uint32_t right_child_page_num)
@@ -312,7 +320,7 @@ void create_new_root(Table *table, uint32_t right_child_page_num)
   set_node_root(left_child, false);
 
   // Root node is a new internal node with one key and two children
-  initialize_internal_node(root);
+  btreeInitInternalNode(root);
   set_node_root(root, true);
   *internal_node_nums_keys(root) = 1;
   *internal_node_child(root, 0) = left_child_page_num;
@@ -722,9 +730,10 @@ Table *sqliteOpen(const char *filename)
     table->root_page_num = 0;
 
     if (pager->num_pages == 0) {
-        // New db file. Initialize page 0 as leaf node.
+      // New db file. Initialize page 0 as leaf node.
       void *root_node = sqlitePagerGet(pager, 0);
       btreeInitLeafNode(root_node);
+      set_node_root(root_node, true);
     }
     return table;
 }
