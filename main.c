@@ -8,6 +8,16 @@ typedef struct {
     ssize_t input_length;
 } InputBuffer;
 
+InputBuffer *new_input_buffer()
+{
+    InputBuffer *input = (InputBuffer*)malloc(sizeof(InputBuffer));
+    input->buffer = NULL;
+    input->buffer_length = 0;
+    input->input_length = 0;
+
+    return input;
+}
+
 int main()
 {
     InputBuffer *input_buffer = new_input_buffer();
