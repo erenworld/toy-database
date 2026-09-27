@@ -26,3 +26,7 @@ Each page stores as many rows as it can fit
 Rows are serialized into a compact representation with each page
 Pages are only allocated as needed
 Keep a fixed-size array of pointers to pages
+
+## Rows
+
+![row structure](/row_memory_layout.png)
