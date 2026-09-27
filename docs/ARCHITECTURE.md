@@ -16,3 +16,13 @@ email <-> varchar(255)
 Insert statements are going to look like this.
 
 `insert 1 cstack foo@bar.com`
+
+Now we need to copy that data into some data structure representing the table. We'll start with something simple. Arrays. Like a B-tree, it will group rows into pages, but instead of arranging those pages as a tree it will arrange them as an array.
+
+Here’s my plan:
+
+Store rows in blocks of memory called pages
+Each page stores as many rows as it can fit
+Rows are serialized into a compact representation with each page
+Pages are only allocated as needed
+Keep a fixed-size array of pointers to pages
