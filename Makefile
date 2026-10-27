@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -std=c11 -Wall -Wextra -Wshadow -g -fsanitize=address,undefined
 TARGET = db
 
 .PHONY: build run test clean
