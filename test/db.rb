@@ -1,7 +1,11 @@
 describe 'database' do
+    before do
+        File.delete("test.db") if File.exist?("test.db")
+    end
+
     def run_script(commands)
         raw_output = nil
-        IO.popen("./db", "r+") do |pipe|
+        IO.popen("./db test.db", "r+") do |pipe|
             commands.each do |command|
                 pipe.puts command
             end
@@ -80,6 +84,78 @@ describe 'database' do
         expect(result).to match_array([
             "sqlite > ID must be positive.",
             "sqlite > Executed.",
+            "sqlite > ",
+        ])
+    end
+
+    it 'keeps the right row count across full pages' do
+        script = (1..196).map do |i|
+            "insert #{i} user#{i} person#{i}@example.com"
+        end
+        script << ".exit"
+        run_script(script)
+        result = run_script([
+            "select",
+            ".exit",
+        ])
+        # 196 rows + "Executed." + final prompt
+        expect(result.size).to eq(198)
+        expect(result[-3]).to eq("(196, user196, person196@example.com)")
+    end
+
+    it 'rejects a non-numeric id' do
+        result = run_script([
+            "insert abc user1 person1@example.com",
+            ".exit",
+        ])
+        expect(result).to match_array([
+            "sqlite > Syntax error. Could not parse statement.",
+            "sqlite > ",
+        ])
+    end
+
+    it 'rejects keywords that only start with insert' do
+        result = run_script([
+            "insertfoo 1 user1 person1@example.com",
+            ".exit",
+        ])
+        expect(result).to match_array([
+            "sqlite > Unrecognized keyword at start of 'insertfoo 1 user1 person1@example.com'.",
+            "sqlite > ",
+        ])
+    end
+
+    it 'keeps data after end of input (Ctrl-D)' do
+        run_script([
+            "insert 1 user1 person1@example.com",
+        ])
+        result = run_script([
+            "select",
+            ".exit",
+        ])
+        expect(result).to match_array([
+            "sqlite > (1, user1, person1@example.com)",
+            "Executed.",
+            "sqlite > ",
+        ])
+    end
+
+    it 'keeps data after closing connection' do 
+        result1 = run_script([
+            "insert 1 user1 person1@example.com",
+            ".exit",
+        ])
+        expect(result1).to match_array([
+            "sqlite > Executed.",
+            "sqlite > ",
+        ])
+        result2 = run_script([
+            "select",
+            ".exit"
+        ])
+        expect(result2).to match_array([
+            "sqlite > (1, user1, person1@example.com)",
+            "Executed.",
             "sqlite > ",
         ])
     end

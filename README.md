@@ -26,3 +26,4 @@ The entire database is stored in a single file!
 - How are indexes formatted?
 - When and how does a full table scan happen?
 - What format is a prepared statement saved in?
+- vim mydb.db + :%!xxd

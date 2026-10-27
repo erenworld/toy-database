@@ -6,8 +6,11 @@ TARGET = db
 
 build: $(TARGET)
 
-$(TARGET): main.c
-	$(CC) $(CFLAGS) main.c -o $(TARGET)
+SRC = $(wildcard src/*.c)
+HDR = $(wildcard src/*.h)
+
+$(TARGET): $(SRC) $(HDR)
+	$(CC) $(CFLAGS) -Isrc $(SRC) -o $(TARGET)
 
 run: build
 	./$(TARGET)
