@@ -30,3 +30,10 @@ Keep a fixed-size array of pointers to pages
 ## Rows
 
 ![row structure](/row_memory_layout.png)
+
+| column   | size (bytes) | offset |
+|----------|--------------|--------|
+| id       | 4            | 0      |
+| username | 32           | 4      |
+| email    | 255          | 36     |
+| total    | 291          |        |

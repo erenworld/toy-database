@@ -27,6 +27,8 @@ Each B-tree consists of many nodes. Each node is one page in length. The B-tree 
 
 The “front-end” of sqlite is a SQL compiler that parses a string and outputs an internal representation called bytecode.
 
+This bytecode is passed to the virtual machine, which executes it
+
 ## Questions
 
 - What format is data saved in? (in memory and on disk)
@@ -36,3 +38,6 @@ The “front-end” of sqlite is a SQL compiler that parses a string and outputs
 - How are indexes formatted?
 - When and how does a full table scan happen?
 - What format is a prepared statement saved in?
+
+## Todo
+
